@@ -151,7 +151,7 @@
 
         <div id="error-msg">Invalid email or password</div>
 
-        <form id="loginForm">
+        <form id="loginForm" onsubmit="return false;">
             <div class="form-group">
                 <label for="email">Email</label>
                 <input type="email" id="email" placeholder="Enter admin email" required>
@@ -162,7 +162,7 @@
                 <input type="password" id="password" placeholder="••••••••" required>
             </div>
 
-            <button type="submit" id="auth-btn" class="login-btn">Sign In</button>
+            <button type="button" id="auth-btn" class="login-btn">Sign In</button>
         </form>
 
         <div class="footer-links" id="loading-spinner" style="display: none;">
@@ -193,12 +193,16 @@
         };
         checkSession();
 
-        document.getElementById('loginForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-
+        const handleLogin = async () => {
             const email = emailInput.value.trim();
             const password = passwordInput.value;
             
+            if (!email || !password) {
+                errorMsg.innerText = "Please fill in all fields.";
+                errorMsg.style.display = "block";
+                return;
+            }
+
             errorMsg.style.display = "none";
             authBtn.disabled = true;
             spinner.style.display = "block";
@@ -216,7 +220,7 @@
                 }
             } catch (error) {
                 console.error("Auth error:", error);
-                errorMsg.innerText = "Access Denied: Invalid Credentials";
+                errorMsg.innerText = "Access Denied: " + error.message;
                 errorMsg.style.display = "block";
                 passwordInput.value = "";
 
@@ -227,6 +231,15 @@
                 authBtn.disabled = false;
                 spinner.style.display = "none";
             }
+        };
+
+        authBtn.addEventListener('click', handleLogin);
+        
+        // Allow Enter key to trigger login
+        [emailInput, passwordInput].forEach(input => {
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleLogin();
+            });
         });
     </script>
 
