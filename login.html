@@ -224,6 +224,23 @@
                         password
                     });
                     if (error) throw error;
+                    
+                    if (data.user) {
+                        // Create user_roles entry for permissions
+                        await supabase.from('user_roles').upsert([
+                            { user_id: data.user.id, role: 'visitor' }
+                        ]);
+
+                        // Create profiles entry for user management list
+                        await supabase.from('profiles').upsert([
+                            { 
+                                username: email, 
+                                password: '---', // Handled by Supabase Auth
+                                role: 'visitor' 
+                            }
+                        ]);
+                    }
+                    
                     alert("Verification email sent! Please check your inbox.");
                     isSignUp = false;
                     authBtn.innerText = "Sign In";
