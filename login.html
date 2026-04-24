@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XBFA | Login</title>
+    <style>
+        :root {
+            --bg-color: #0a0a0a;
+            --card-bg: #121212;
+            --accent-green: #00FF88; /* Matching your Dashboard color */
+            --text-main: #ffffff;
+            --text-dim: #a0a0a0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-main);
+        }
+
+        /* Background glow effect for a modern feel */
+        body::before {
+            content: "";
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            background: var(--accent-green);
+            filter: blur(150px);
+            opacity: 0.1;
+            z-index: -1;
+        }
+
+        .login-container {
+            background-color: var(--card-bg);
+            padding: 40px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border: 1px solid #222;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 2.5rem;
+            font-weight: 900;
+            font-style: italic;
+            margin-bottom: 10px;
+            letter-spacing: -1px;
+        }
+
+        .logo span {
+            color: var(--accent-green);
+        }
+
+        .subtitle {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .form-group {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px 15px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: white;
+            outline: none;
+            transition: 0.3s;
+        }
+
+        input:focus {
+            border-color: var(--accent-green);
+            box-shadow: 0 0 8px rgba(0, 255, 136, 0.2);
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 14px;
+            background-color: var(--accent-green);
+            color: black;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: 0.3s ease;
+            text-transform: uppercase;
+        }
+
+        .login-btn:hover {
+            background-color: #00cc6d;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 255, 136, 0.3);
+        }
+
+        .footer-links {
+            margin-top: 25px;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+        }
+
+        .footer-links a {
+            color: var(--accent-green);
+            text-decoration: none;
+        }
+
+        /* Error message style */
+        #error-msg {
+            color: #ff4d4d;
+            font-size: 0.85rem;
+            margin-bottom: 15px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-container">
+        <div class="logo">XB<span>FA</span></div>
+        <div class="subtitle">Database Access</div>
+
+        <div id="error-msg">Invalid username or password</div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" placeholder="Enter username" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" placeholder="••••••••" required>
+            </div>
+
+            <button type="submit" class="login-btn">Sign In</button>
+        </form>
+
+        <div class="footer-links">
+            <p>Don't have access? <a href="#">Contact Admin</a></p>
+        </div>
+    </div>
+
+    <script>
+        // Use standard script instead of module since we don't need external Firebase imports
+        
+        // 🔥 Auto redirect if already logged in via localStorage
+        if (localStorage.getItem("loggedInUser")) {
+            window.location.href = "index.html";
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const usernameInput = document.getElementById('username').value.trim();
+            const passwordInput = document.getElementById('password').value.trim();
+            const errorMsg = document.getElementById('error-msg');
+            errorMsg.style.display = "none";
+
+            try {
+                // Get users from localStorage
+                const users = JSON.parse(localStorage.getItem("xbfa_users")) || [];
+                
+                // Fallback: If no users exist, allow "admin" with "xbfa123" to get in initially
+                if (users.length === 0 && usernameInput === "admin" && passwordInput === "xbfa123") {
+                    localStorage.setItem("loggedInUser", "admin");
+                    localStorage.setItem("userRole", "admin");
+                    window.location.href = "index.html";
+                    return;
+                }
+
+                // Search for matching user in localStorage
+                const user = users.find(u => 
+                    u.username === usernameInput && 
+                    u.password === passwordInput
+                );
+                
+                if (user) {
+                    // Set session
+                    localStorage.setItem("loggedInUser", user.username);
+                    localStorage.setItem("userRole", user.role || "visitor");
+                    
+                    window.location.href = "index.html";
+                } else {
+                    throw new Error("Invalid credentials");
+                }
+            } catch (error) {
+                console.error("Login error:", error);
+                errorMsg.style.display = "block";
+                document.getElementById('password').value = "";
+
+                const container = document.querySelector('.login-container');
+                container.style.animation = "shake 0.4s";
+                setTimeout(() => container.style.animation = "", 400);
+            }
+        });
+    </script>
+
+    <style>
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+            100% { transform: translateX(0); }
+        }
+    </style>
+</body>
+</html>

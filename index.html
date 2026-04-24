@@ -1,13 +1,480 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Google AI Studio App</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XBFA | Class Stats Pro</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- MOBILE HEADER -->
+        <header class="mobile-header">
+            <div class="logo">
+                <span class="logo-fc">XB</span><span class="logo-class">FA</span>
+            </div>
+            <div class="season-selector-wrapper">
+                <select id="seasonSelectorMobile" onchange="switchSeason(this.value)" class="season-select">
+                    <!-- Options injected by JS -->
+                </select>
+            </div>
+        </header>
 
+        <!-- SIDEBAR -->
+<nav class="sidebar">
+    <div class="sidebar-header" style="padding: 20px; border-bottom: 1px solid #222; margin-bottom: 10px;">
+        <div class="logo" style="margin-bottom: 15px;">
+            <span class="logo-fc">XB</span><span class="logo-class">FA</span>
+        </div>
+        
+        <!-- Season Selector Dropdown -->
+        <div class="season-selector-wrapper">
+            <select id="seasonSelector" onchange="switchSeason(this.value)" class="season-select">
+                <!-- Options injected by JS -->
+            </select>
+        </div>
+    </div>
+
+    <ul class="nav-links">
+        <li id="nav-dashboard" class="active" onclick="showPage('dashboard')"><i class="fas fa-th-large"></i> <span>Dashboard</span></li>
+        <li id="nav-players" onclick="showPage('players')"><i class="fas fa-users"></i> <span>Squad</span></li>
+        <li id="nav-matches" onclick="showPage('matches')"><i class="fas fa-gamepad"></i> <span>Matches</span></li>
+        <li id="nav-leaderboards" onclick="showPage('leaderboards')"><i class="fas fa-trophy"></i> <span>Leaderboards</span></li>
+        <li id="nav-awards" onclick="showPage('awards')"><i class="fas fa-award"></i> <span>Awards</span></li>
+        <li id="nav-admin" onclick="showPage('admin')"><i class="fas fa-user-shield"></i> <span>Settings</span></li>
+    </ul>
+</nav>
+
+        <!-- MAIN -->
+        <main class="content">
+            <!-- DASHBOARD (UI FIX: STRUCTURED BLOCKS) -->
+            <section id="dashboard" class="page active">
+                <header><h1>DASHBOARD</h1></header>
+                <div class="stats-summary-grid" id="dashboard-stats">
+                    <!-- JS Injected: Separate Stat Cards -->
+                </div>
+                <div class="dashboard-layout">
+                    <div class="dash-main">
+                        <div class="glass-card">
+                            <h3>Latest Result</h3>
+                            <div id="latest-match-hero"></div>
+                        </div>
+                    </div>
+                    <div class="dash-side">
+                        <div class="glass-card">
+                            <h3>Season MVP</h3>
+                            <div id="dash-mvp-card"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SQUAD -->
+            <section id="players" class="page">
+                <div class="section-header-flex header-actions">
+                    <h1>SQUAD MEMBERS</h1>
+                    <button class="btn-neon" onclick="openPlayerStudio()"><i class="fas fa-plus"></i> Add Player</button>
+                </div>
+                <div class="squad-container" id="players-list"></div>
+            </section>
+
+            <!-- MATCH HISTORY -->
+            <section id="matches" class="page">
+                <div class="section-header-flex header-actions">
+                    <h1>MATCH HISTORY</h1>
+                    <button class="btn-neon" onclick="openMatchStudio()"><i class="fas fa-plus-circle"></i> Record Match</button>
+                </div>
+                <div id="match-history-list" class="match-history-grid"></div>
+            </section>
+
+            <!-- LEADERBOARDS -->
+            <section id="leaderboards" class="page">
+                <h1>LEADERBOARDS</h1>
+                <div class="leaderboard-grid">
+                    <div class="glass-card"><h3>Top Scorers</h3><div id="lb-goals" class="lb-rows"></div></div>
+                </div>
+            </section>
+
+            <!-- AWARDS (UI FIX: STRUCTURED CARDS) -->
+            <section id="awards" class="page">
+                <div class="section-header-flex header-actions">
+                    <h1>SEASON AWARDS</h1>
+                    <button class="btn-neon" onclick="openAwardStudio()"><i class="fas fa-plus"></i> Add Award</button>
+                </div>
+                <div id="awards-display" class="awards-grid-redesign">
+                    <!-- JS Injected: Separate Award Cards -->
+                </div>
+            </section>
+
+            <!-- SETTINGS -->
+            <section id="admin" class="page">
+                <header>
+                    <h1>SETTINGS</h1>
+                </header>
+
+                <div class="settings-grid">
+                    <!-- SYSTEM SECTION -->
+                    <div class="settings-group admin-only">
+                        <div class="settings-card">
+                            <div class="settings-title">
+                                <i class="fas fa-microchip"></i> System
+                            </div>
+                            <p class="settings-desc">Control core system parameters and session state.</p>
+                            <div class="settings-actions">
+                                <button class="btn-danger w-100" onclick="resetSystem()">
+                                    <i class="fas fa-trash-alt"></i> Reset Entire System
+                                </button>
+                                <button class="btn-neon w-100" onclick="logout()">
+                                    <i class="fas fa-sign-out-alt"></i> Logout Session
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- DATA MANAGEMENT SECTION -->
+                    <div class="settings-group admin-only">
+                        <div class="settings-card">
+                            <div class="settings-title">
+                                <i class="fas fa-database"></i> Data Management
+                            </div>
+                            <p class="settings-desc">Manage seasons, backup your data, or restore from a file.</p>
+                            <div class="settings-actions">
+                                <button class="btn-neon w-100" onclick="openSeasonManager()">
+                                    <i class="fas fa-calendar-alt"></i> Manage Seasons
+                                </button>
+                                
+                                <div style="display: flex; gap: 10px;">
+                                    <button onclick="exportData()" class="btn-outline w-100">
+                                        <i class="fas fa-file-export"></i> Export Data
+                                    </button>
+                                </div>
+
+                                <label class="custom-upload-box w-100">
+                                    <i class="fas fa-file-import"></i>
+                                    <span>Click to Import Data (.json)</span>
+                                    <div id="file-name-display">No file selected</div>
+                                    <input type="file" id="import-file-input" onchange="handleFileSelect(event)" style="display: none;">
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ACCOUNT SECTION -->
+                    <div class="settings-group admin-only">
+                        <div class="settings-card clickable-card" onclick="renderIdManager(); toggleModal('id-manager-modal', true)">
+                            <div class="settings-title">
+                                <i class="fas fa-user-shield"></i> User Management
+                            </div>
+                            <p class="settings-desc">Manage system users, passwords, and access permissions.</p>
+                            <div class="settings-actions" style="margin-top: auto;">
+                                <button class="btn-outline w-100">
+                                    Manage User IDs <i class="fas fa-chevron-right" style="margin-left: 5px;"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- VISITOR LOGOUT (Shown only to non-admins) -->
+                    <div class="settings-group visitor-only">
+                         <div class="settings-card" style="text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                            <div class="settings-title">
+                                <i class="fas fa-sign-out-alt"></i> Account
+                            </div>
+                            <p class="settings-desc">Exit your current session.</p>
+                             <button class="btn-neon w-100" onclick="logout()">
+                                Logout
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- BOTTOM NAVIGATION (MOBILE) -->
+        <nav class="bottom-nav">
+            <div class="bottom-nav-item active" onclick="showPage('dashboard')" id="bnav-dashboard">
+                <i class="fas fa-th-large"></i>
+                <span>Dashboard</span>
+            </div>
+            <div class="bottom-nav-item" onclick="showPage('players')" id="bnav-players">
+                <i class="fas fa-users"></i>
+                <span>Squad</span>
+            </div>
+            <div class="bottom-nav-item" onclick="showPage('matches')" id="bnav-matches">
+                <i class="fas fa-gamepad"></i>
+                <span>Matches</span>
+            </div>
+            <div class="bottom-nav-item" onclick="showPage('leaderboards')" id="bnav-leaderboards">
+                <i class="fas fa-trophy"></i>
+                <span>L-Boards</span>
+            </div>
+            <div class="bottom-nav-item" onclick="showPage('awards')" id="bnav-awards">
+                <i class="fas fa-award"></i>
+                <span>Awards</span>
+            </div>
+            <div class="bottom-nav-item" onclick="showPage('admin')" id="bnav-admin">
+                <i class="fas fa-user-shield"></i>
+                <span>Settings</span>
+            </div>
+        </nav>
+    </div>
+
+    <!-- MODAL: PLAYER STUDIO -->
+    <div id="player-studio-modal" class="modal">
+        <div class="modal-content studio-large glass-card">
+            <span class="close-btn" onclick="toggleModal('player-studio-modal', false)">&times;</span>
+            <div class="player-editor">
+                <div class="form-section">
+                    <h2 id="ps-title">Player Studio</h2>
+                    <form id="ps-form">
+                        <input type="hidden" id="f-id">
+                        <div class="input-group-styled">
+                            <h4>Basic Info</h4>
+                            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                                <input type="text" id="f-name" placeholder="Full Name" required style="flex: 2; margin-bottom: 0;">
+                                <input type="number" id="f-number" placeholder="No." min="1" max="99" style="flex: 1; margin-bottom: 0;">
+                            </div>
+                            <select id="f-pos" onchange="updateStatFields()"><option value="ST">ST</option><option value="CAM">CAM</option><option value="CB">CB</option><option value="GK">GK</option></select>
+                            <label>Rating: <span id="f-rating-val" class="accent-text">85</span></label>
+                            <input type="range" id="f-rating" min="10" max="99" value="85">
+                        </div>
+                        <div class="input-group-styled"><h4>Photo</h4><input type="file" id="f-photo" accept="image/*"></div>
+                        <button type="submit" class="btn-neon w-100">Save Profile</button>
+                    </form>
+                </div>
+                <div class="preview-section"><div id="ps-preview-container"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="match-studio-modal" class="modal">
+        <div class="modal-content studio-large glass-card" style="max-width: 900px; padding: 40px;">
+            <span class="close-btn" onclick="toggleModal('match-studio-modal', false)">&times;</span>
+            
+            <div class="studio-grid-layout">
+                <!-- HEADER SECTION -->
+                <div class="studio-section collapsible-section">
+                    <div class="studio-section-title" onclick="toggleStudioSection(this)">
+                        <span><i class="fas fa-info-circle"></i> Match Information</span>
+                        <i class="fas fa-chevron-up toggle-icon"></i>
+                    </div>
+                    <div class="studio-section-body">
+                        <div class="form-row" style="display: flex; gap:15px;">
+                            <div class="input-group-styled" style="flex:1">
+                                <label><i class="fas fa-calendar-day"></i> Date</label>
+                                <input type="date" id="ms-date">
+                            </div>
+                            <div class="input-group-styled" style="flex:2">
+                                <label><i class="fas fa-pencil-alt"></i> Match Title</label>
+                                <input type="text" id="ms-title" placeholder="Match Title (e.g. Friendly Match)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LINEUPS SECTION -->
+                <div class="studio-section collapsible-section">
+                    <div class="studio-section-title" onclick="toggleStudioSection(this)">
+                        <span><i class="fas fa-users"></i> Lineups & Squad Selection</span>
+                        <i class="fas fa-chevron-up toggle-icon"></i>
+                    </div>
+                    
+                    <div class="studio-section-body">
+                        <div style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
+                            <button class="btn-neon" onclick="togglePlayerPool()" style="padding: 5px 12px; font-size: 0.8rem;">
+                                <i class="fas fa-edit"></i> Manage Lineups
+                            </button>
+                        </div>
+                        
+                        <div id="ms-player-pool-container" class="hidden" style="margin-bottom:25px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                            <p class="text-dim" style="font-size: 0.8rem; margin-bottom: 10px;">Click a player to cycle through Team A, Team B, and Bench.</p>
+                            <div id="ms-player-pool" class="selectable-grid"></div>
+                        </div>
+                        
+                        <div class="lineups-container-modern">
+                            <div class="team-panel team-a" id="team-a-panel">
+                                <h4 style="color:var(--team-a); margin-bottom:10px;"><i class="fas fa-shield-alt"></i> TEAM A</h4>
+                                <div id="lineup-a-list-modern" class="chips-flex"></div>
+                            </div>
+                            <div class="vs-circle">VS</div>
+                            <div class="team-panel team-b" id="team-b-panel">
+                                <h4 style="color:var(--team-b); margin-bottom:10px;"><i class="fas fa-shield-alt"></i> TEAM B</h4>
+                                <div id="lineup-b-list-modern" class="chips-flex"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TIMELINE SECTION -->
+                <div class="studio-section collapsible-section">
+                    <div class="studio-section-title" onclick="toggleStudioSection(this)">
+                        <span><i class="fas fa-clock"></i> Match Timeline</span>
+                        <i class="fas fa-chevron-up toggle-icon"></i>
+                    </div>
+                    <div class="studio-section-body">
+                        <div id="goal-events-container-modern"></div>
+                        <button class="btn-outline w-100" style="margin-top:10px; border-style: dashed;" onclick="addGoalRow()">
+                            <i class="fas fa-plus-circle"></i> Add Goal Event
+                        </button>
+                    </div>
+                </div>
+
+                <!-- AWARDS SECTION -->
+                <div class="studio-section collapsible-section">
+                    <div class="studio-section-title" onclick="toggleStudioSection(this)">
+                        <span><i class="fas fa-medal"></i> Match Awards</span>
+                        <i class="fas fa-chevron-up toggle-icon"></i>
+                    </div>
+                    <div class="studio-section-body">
+                        <div id="ms-awards-container-dynamic">
+                            <!-- Dynamic Award Rows -->
+                        </div>
+                        <button class="btn-outline w-100" style="margin-top:10px; border-style: dashed;" onclick="addAwardRowInStudio()">
+                            <i class="fas fa-plus"></i> Add Custom Match Award
+                        </button>
+                    </div>
+                </div>
+
+                <!-- PLAYER RATINGS SECTION -->
+                <div class="studio-section collapsible-section">
+                    <div class="studio-section-title" onclick="toggleStudioSection(this)">
+                        <span><i class="fas fa-star"></i> Player Ratings</span>
+                        <i class="fas fa-chevron-up toggle-icon"></i>
+                    </div>
+                    <div class="studio-section-body">
+                        <div id="ms-ratings-container-dynamic">
+                            <!-- Dynamic Rating Rows -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FINAL ACTION -->
+                <button class="btn-finalize-hero w-100" id="ms-finalize-btn" onclick="saveMatch()">
+                    <i class="fas fa-check-circle"></i> Finalize Match
+                    <span>Save results and update all season statistics</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- MODAL: MATCH DETAIL (UI FIX: STRUCTURED VIEW) -->
+    <div id="match-detail-modal" class="modal">
+        <div class="modal-content studio-large glass-card" id="match-detail-body">
+            <!-- JS Injected: Header, Lineups, Timeline, Awards -->
+        </div>
+    </div>
+
+    <!-- MODAL: PROFILE VIEW -->
+    <div id="player-modal" class="modal">
+        <div class="modal-content glass-card" style="max-width: 500px;"><span class="close-btn" onclick="toggleModal('player-modal', false)">&times;</span><div id="player-view-body"></div></div>
+    </div>
+    
+    <!-- MODAL: AWARD STUDIO -->
+    <div id="award-studio-modal" class="modal">
+        <div class="modal-content glass-card" style="max-width: 450px;">
+            <span class="close-btn" onclick="toggleModal('award-studio-modal', false)">&times;</span>
+            <h2 id="as-title">Award Studio</h2>
+            <div class="form-section">
+                <form id="as-form">
+                    <input type="hidden" id="as-id">
+                    <div class="input-group-styled">
+                        <label>Award Name</label>
+                        <input type="text" id="as-name" placeholder="e.g. Golden Boot" required>
+                    </div>
+                    <div class="input-group-styled">
+                        <label>Select Player</label>
+                        <select id="as-player" required>
+                            <option value="">Choose Winner</option>
+                            <!-- JS Injected Options -->
+                        </select>
+                    </div>
+                    <button type="submit" class="btn-neon w-100">Save Award</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+<!-- MODAL: ID MANAGER -->
+<div id="id-manager-modal" class="modal">
+    <div class="modal-content studio-large glass-card" style="max-width:650px">
+        <span class="close-btn" onclick="toggleModal('id-manager-modal', false)">&times;</span>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px">
+            <h2 style="margin:0">ID Manager</h2>
+            <span style="font-size:0.8rem; color:var(--text-dim)">Manage Users</span>
+        </div>
+
+        <!-- 🔥 CREATE USER INLINE -->
+        <div class="glass-card" style="padding:15px; margin-bottom:20px">
+            <h4 style="margin-bottom:10px">Create New ID</h4>
+
+            <div style="display:flex; gap:10px; flex-wrap:wrap">
+                <input type="text" id="uc-username" placeholder="Username" style="flex:1">
+                <input type="password" id="uc-password" placeholder="Password" style="flex:1">
+                <select id="uc-role" style="flex:1">
+                    <option value="admin">Admin</option>
+                    <option value="visitor">Visitor</option>
+                </select>
+            </div>
+
+            <button class="btn-neon w-100" style="margin-top:10px" onclick="createUser()">
+                + Create User
+            </button>
+        </div>
+
+        <!-- USERS LIST -->
+        <div class="form-section">
+            <h4 style="margin-bottom:10px">All Users</h4>
+            <div id="id-list" style="display:flex; flex-direction:column; gap:12px;"></div>
+        </div>
+
+        <div class="form-section" style="margin-top:20px">
+            <button class="btn-danger w-100" onclick="deleteAllUsers()">
+                Delete All Users
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: SEASON MANAGER -->
+<div id="season-manager-modal" class="modal">
+    <div class="modal-content studio-large glass-card" style="max-width: 750px;">
+        <span class="close-btn" onclick="toggleModal('season-manager-modal', false)">&times;</span>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+            <div>
+                <h2 style="margin: 0;">Season Manager</h2>
+                <p style="color: var(--text-dim); margin-top: 5px; font-size: 0.9rem;">Organize and switch between different match seasons.</p>
+            </div>
+        </div>
+
+        <!-- CREATE NEW SEASON -->
+        <div class="season-create-banner">
+            <input type="text" id="sm-new-name" placeholder="New Season Name (e.g. 2025 Winter)">
+            <button onclick="addSeasonFromManager()" class="btn-neon">Create Season</button>
+        </div>
+
+        <!-- SEASONS GRID/LIST -->
+        <div id="sm-seasons-list" class="season-cards-grid">
+            <!-- Dynamic Injection -->
+        </div>
+    </div>
+</div>
+
+    <!-- MODAL: CUSTOM CONFIRMATION -->
+    <div id="confirm-modal" class="modal" style="z-index: 2000;">
+        <div class="modal-content glass-card" style="max-width: 400px; text-align: center; padding: 30px;">
+            <h3 id="confirm-msg" style="margin-bottom: 25px; line-height: 1.5;">Are you sure?</h3>
+            <div style="display: flex; gap: 15px;">
+                <button class="btn-outline w-100" style="margin:0" onclick="closeConfirmModal()">Cancel</button>
+                <button id="confirm-ok-btn" class="btn-danger w-100">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
