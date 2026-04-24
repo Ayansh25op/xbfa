@@ -1599,6 +1599,15 @@ window.togglePlayerPool = togglePlayerPool;
 window.toggleStudioSection = toggleStudioSection;
 // Expose globally
 window.logout = logout;
+window.openMatchStudio = openMatchStudio;
+window.openSeasonManager = openSeasonManager;
+window.exportData = exportData;
+window.closeConfirmModal = closeConfirmModal;
+window.saveSeasonRename = saveSeasonRename;
+window.requestDeleteSeason = requestDeleteSeason;
+window.cancelDeleteSeason = cancelDeleteSeason;
+window.enableSeasonRename = enableSeasonRename;
+window.updateStatFields = updateStatFields;
 
 // Ensure role is globally accessible
 window.userRole = userRole;
