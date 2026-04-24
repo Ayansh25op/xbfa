@@ -113,14 +113,21 @@ async function loadMatches() {
 
 async function savePlayerToDB(player) {
     if (!player) return;
+    console.log("Saving player to DB:", player);
     const { id, ...playerData } = player;
     
     if (id && String(id).length > 20) { // Check if it's a UUID
         const { error } = await supabase.from('players').update(playerData).eq('id', id);
-        if (error) console.error("Error updating player:", error);
+        if (error) {
+            console.error("Error updating player:", error);
+            throw error;
+        }
     } else {
         const { error } = await supabase.from('players').insert([playerData]);
-        if (error) console.error("Error inserting player:", error);
+        if (error) {
+            console.error("Error inserting player:", error);
+            throw error;
+        }
     }
     await loadPlayers();
     await recalculateStats();
@@ -135,40 +142,44 @@ async function deletePlayerFromDB(id) {
 
 async function saveMatchToDB(match) {
     if (!match) return;
+    console.log("Saving match to DB:", match);
     const { id, ratings, ...matchData } = match;
     matchData.season_id = currentSeasonId;
 
-    let matchId = id;
-    if (id && String(id).length > 20) {
-        const { error } = await supabase.from('matches').update(matchData).eq('id', id);
-        if (error) console.error("Error updating match:", error);
-    } else {
-        delete matchData.id;
-        const { data, error } = await supabase.from('matches').insert([matchData]).select();
-        if (error) {
-            console.error("Error inserting match:", error);
-            return;
+    try {
+        let matchId = id;
+        if (id && String(id).length > 20) {
+            const { error } = await supabase.from('matches').update(matchData).eq('id', id);
+            if (error) throw error;
+        } else {
+            delete matchData.id;
+            const { data, error } = await supabase.from('matches').insert([matchData]).select();
+            if (error) throw error;
+            matchId = data[0].id;
         }
-        matchId = data[0].id;
-    }
 
-    // Handle ratings
-    if (ratings) {
-        await supabase.from('match_ratings').delete().eq('match_id', matchId);
-        if (ratings.length > 0) {
-            const ratingsToInsert = ratings.map(r => ({
-                match_id: matchId,
-                player_id: r.playerId,
-                rating: r.rating
-            }));
-            const { error: rError } = await supabase.from('match_ratings').insert(ratingsToInsert);
-            if (rError) console.error("Error inserting ratings:", rError);
+        // Handle ratings
+        if (ratings) {
+            await supabase.from('match_ratings').delete().eq('match_id', matchId);
+            if (ratings.length > 0) {
+                const ratingsToInsert = ratings.map(r => ({
+                    match_id: matchId,
+                    player_id: r.playerId,
+                    rating: r.rating
+                }));
+                const { error: rError } = await supabase.from('match_ratings').insert(ratingsToInsert);
+                if (rError) throw rError;
+            }
         }
-    }
 
-    await loadMatches();
-    await recalculateStats();
-    renderAll();
+        await loadMatches();
+        await recalculateStats();
+        renderAll();
+    } catch (err) {
+        console.error("Match Save Error:", err);
+        showAlertModal("Error saving match: " + err.message);
+        throw err;
+    }
 }
 
 async function deleteMatchFromDB(id) {
@@ -540,27 +551,40 @@ async function openAwardStudio(id = null) {
     toggleModal('award-studio-modal', true);
 }
 
-document.getElementById('as-form').onsubmit = async (e) => {
-    e.preventDefault();
-    if (userRole !== "admin") return;
+async function handleSaveAward() {
+    if (userRole !== "admin") {
+        showAlertModal("Admin access required");
+        return;
+    }
 
     const id = document.getElementById('as-id').value;
     const name = document.getElementById('as-name').value.trim();
     const playerId = document.getElementById('as-player').value;
 
-    if (!name || !playerId) return;
+    if (!name || !playerId) {
+        showAlertModal("Please fill in all fields");
+        return;
+    }
 
     const awardData = { name, player_id: playerId, season_id: currentSeasonId };
 
-    if (id) {
-        await supabase.from('awards').update(awardData).eq('id', id);
-    } else {
-        await supabase.from('awards').insert([awardData]);
-    }
+    try {
+        if (id) {
+            const { error } = await supabase.from('awards').update(awardData).eq('id', id);
+            if (error) throw error;
+        } else {
+            const { error } = await supabase.from('awards').insert([awardData]);
+            if (error) throw error;
+        }
 
-    toggleModal('award-studio-modal', false);
-    await renderAwards();
-};
+        toggleModal('award-studio-modal', false);
+        await renderAwards();
+        showAlertModal("Award saved successfully!");
+    } catch (err) {
+        console.error("Award Save Error:", err);
+        showAlertModal("Error saving award: " + err.message);
+    }
+}
 
 async function deleteAward(id) {
     if (userRole !== "admin") return;
@@ -740,16 +764,25 @@ function updateLivePreview() {
     document.getElementById('ps-preview-container').innerHTML = createCardHTML({name, pos, rating, jerseyNumber, photo: currentPhoto, goals:0, matches:0, id:99});
 }
 
-document.getElementById('ps-form').onsubmit = async (e) => {
-  e.preventDefault();
-
+async function handleSavePlayer() {
+  console.log("SAVE PLAYER TRIGGERED");
+  
   const idInput = document.getElementById('f-id').value;
+  const name = document.getElementById('f-name').value;
+  const jerseyNumber = parseInt(document.getElementById('f-number').value) || null;
+  const pos = document.getElementById('f-pos').value;
+  const rating = parseInt(document.getElementById('f-rating').value);
+
+  if (!name) {
+    showAlertModal("Please enter a player name");
+    return;
+  }
 
   const data = {
-    name: document.getElementById('f-name').value,
-    jerseyNumber: parseInt(document.getElementById('f-number').value) || null,
-    pos: document.getElementById('f-pos').value,
-    rating: parseInt(document.getElementById('f-rating').value),
+    name,
+    jerseyNumber,
+    pos,
+    rating,
     photo: currentPhoto,
   };
 
@@ -757,10 +790,16 @@ document.getElementById('ps-form').onsubmit = async (e) => {
       data.id = idInput;
   }
 
-  await savePlayerToDB(data);
-  renderSquad();
-  toggleModal('player-studio-modal', false);
-};
+  try {
+    await savePlayerToDB(data);
+    renderSquad();
+    toggleModal('player-studio-modal', false);
+    showAlertModal("Player profile saved!");
+  } catch (err) {
+    console.error("Save Player Error:", err);
+    showAlertModal("Error saving player: " + err.message);
+  }
+}
 
 async function init() {
     await loadSeasons();
@@ -968,84 +1007,94 @@ function renderRatingsGrid(existingRatings = []) {
 }
 
 async function saveMatch() {
-    if (userRole !== "admin") return;
-    
-    const rows = document.querySelectorAll('.timeline-item');
-    const events = [];
-
-    rows.forEach(r => {
-        const min = parseInt(r.querySelector('.m-min').value);
-        const scorer = r.querySelector('.m-scorer').value;
-        const ownGoal = r.querySelector('.m-owngoal')?.checked;
-
-        if (!isNaN(min) && scorer) {
-            let team;
-            if (studioMatch.teamA.some(id => String(id) === String(scorer))) {
-                team = 'A';
-            } else if (studioMatch.teamB.some(id => String(id) === String(scorer))) {
-                team = 'B';
-            } else {
-                team = 'A'; // fallback
-            }
-            events.push({ min, team, scorer, ownGoal });
-        }
-    });
-
-    // calculate score
-    let scoreA = 0;
-    let scoreB = 0;
-    events.forEach(e => {
-        if (e.ownGoal) {
-            if (e.team === 'A') scoreB++;
-            else scoreA++;
-        } else {
-            if (e.team === 'A') scoreA++;
-            else scoreB++;
-        }
-    });
-
-    // collect awards
-    const awards = {};
-    document.querySelectorAll('.studio-award-item').forEach(row => {
-        const labelEl = row.querySelector('.ms-award-label');
-        const label = labelEl ? labelEl.value.trim().toLowerCase() : "";
-        const pid = row.querySelector('.ms-award-player-select').value;
-        if (label && pid) {
-            if (label.includes("mvp")) awards.mvp = pid;
-            else if (label.includes("lvp")) awards.lvp = pid;
-            else if (label.includes("gk")) awards.gk = pid;
-        }
-    });
-
-    const ratings = [];
-    document.querySelectorAll('.ms-player-rating').forEach(input => {
-        const val = input.value;
-        if (val) {
-            ratings.push({
-                playerId: input.dataset.playerId,
-                rating: parseFloat(val).toFixed(1)
-            });
-        }
-    });
-
-    const data = {
-        date: document.getElementById('ms-date').value,
-        title: document.getElementById('ms-title').value || "New Match",
-        teamA: [...studioMatch.teamA],
-        teamB: [...studioMatch.teamB],
-        events: events,
-        scoreA,
-        scoreB,
-        awards: awards,
-        ratings: ratings
-    };
-
-    if (window.editingMatchId) {
-        data.id = window.editingMatchId;
+    if (userRole !== "admin") {
+        showAlertModal("Admin access required");
+        return;
     }
+    
+    console.log("Finalizing match...");
+    try {
+        const rows = document.querySelectorAll('.timeline-item');
+        const events = [];
 
-    await saveMatchToDB(data);
-    toggleModal('match-studio-modal', false);
+        rows.forEach(r => {
+            const min = parseInt(r.querySelector('.m-min').value);
+            const scorer = r.querySelector('.m-scorer').value;
+            const ownGoal = r.querySelector('.m-owngoal')?.checked;
+
+            if (!isNaN(min) && scorer) {
+                let team;
+                if (studioMatch.teamA.some(id => String(id) === String(scorer))) {
+                    team = 'A';
+                } else if (studioMatch.teamB.some(id => String(id) === String(scorer))) {
+                    team = 'B';
+                } else {
+                    team = 'A'; // fallback
+                }
+                events.push({ min, team, scorer, ownGoal });
+            }
+        });
+
+        // calculate score
+        let scoreA = 0;
+        let scoreB = 0;
+        events.forEach(e => {
+            if (e.ownGoal) {
+                if (e.team === 'A') scoreB++;
+                else scoreA++;
+            } else {
+                if (e.team === 'A') scoreA++;
+                else scoreB++;
+            }
+        });
+
+        // collect awards
+        const awards = {};
+        document.querySelectorAll('.studio-award-item').forEach(row => {
+            const labelEl = row.querySelector('.ms-award-label');
+            const label = labelEl ? labelEl.value.trim().toLowerCase() : "";
+            const pid = row.querySelector('.ms-award-player-select').value;
+            if (label && pid) {
+                if (label.includes("mvp")) awards.mvp = pid;
+                else if (label.includes("lvp")) awards.lvp = pid;
+                else if (label.includes("gk")) awards.gk = pid;
+            }
+        });
+
+        const ratings = [];
+        document.querySelectorAll('.ms-player-rating').forEach(input => {
+            const val = input.value;
+            if (val) {
+                ratings.push({
+                    playerId: input.dataset.playerId,
+                    rating: parseFloat(val).toFixed(1)
+                });
+            }
+        });
+
+        const data = {
+            date: document.getElementById('ms-date').value,
+            title: document.getElementById('ms-title').value || "New Match",
+            teamA: [...studioMatch.teamA],
+            teamB: [...studioMatch.teamB],
+            events: events,
+            scoreA,
+            scoreB,
+            awards: awards,
+            ratings: ratings
+        };
+
+        if (window.editingMatchId) {
+            data.id = window.editingMatchId;
+        }
+
+        await saveMatchToDB(data);
+        toggleModal('match-studio-modal', false);
+        showAlertModal("Match finalized and saved!");
+    } catch (err) {
+        console.error("Match Save Logic Error:", err);
+        showAlertModal("Error finalizing match: " + err.message);
+    }
 }
 
 function editMatch(id) {
@@ -1250,25 +1299,31 @@ async function deleteSeason(id) {
 }
 
 async function addSeasonFromManager() {
-    if (userRole !== "admin") return;
+    if (userRole !== "admin") {
+        showAlertModal("Admin access required");
+        return;
+    }
     const input = document.getElementById('sm-new-name');
     const name = input.value.trim();
     
     if (!name) return;
 
-    const { data, error } = await supabase.from('seasons').insert([{ name }]).select();
-    if (error) {
-        console.error("Error adding season:", error);
-        return;
-    }
+    try {
+        const { data, error } = await supabase.from('seasons').insert([{ name }]).select();
+        if (error) throw error;
 
-    currentSeasonId = data[0].id;
-    input.value = "";
-    
-    await loadSeasons();
-    updateSeasonSelector();
-    renderSeasonManager();
-    await renderAll();
+        currentSeasonId = data[0].id;
+        input.value = "";
+        
+        await loadSeasons();
+        updateSeasonSelector();
+        renderSeasonManager();
+        await renderAll();
+        showAlertModal("New season created!");
+    } catch (err) {
+        console.error("Season Add Error:", err);
+        showAlertModal("Error adding season: " + err.message);
+    }
 }
 
 async function switchSeason(id) {
@@ -1538,6 +1593,8 @@ window.cyclePlayer = cyclePlayer;
 window.addGoalRow = addGoalRow;
 window.addAwardRowInStudio = addAwardRowInStudio;
 window.saveMatch = saveMatch;
+window.handleSavePlayer = handleSavePlayer;
+window.handleSaveAward = handleSaveAward;
 window.togglePlayerPool = togglePlayerPool;
 window.toggleStudioSection = toggleStudioSection;
 // Expose globally

@@ -16,6 +16,41 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
+-- 3.1 Enable RLS for data tables
+ALTER TABLE public.players ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.matches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.seasons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.match_ratings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.awards ENABLE ROW LEVEL SECURITY;
+
+-- 3.2 Add Policies for ALL authenticated users (Simplified for now)
+-- In a real app, you'd restrict INSERT/UPDATE/DELETE to 'admin' role
+-- but matching user intent to allow all authenticated users for now.
+
+-- Players
+CREATE POLICY "Allow all for authenticated users" ON public.players FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow select for everyone" ON public.players FOR SELECT TO public USING (true);
+
+-- Matches
+CREATE POLICY "Allow all for authenticated users" ON public.matches FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow select for everyone" ON public.matches FOR SELECT TO public USING (true);
+
+-- Seasons
+CREATE POLICY "Allow all for authenticated users" ON public.seasons FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow select for everyone" ON public.seasons FOR SELECT TO public USING (true);
+
+-- Match Ratings
+CREATE POLICY "Allow all for authenticated users" ON public.match_ratings FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow select for everyone" ON public.match_ratings FOR SELECT TO public USING (true);
+
+-- Awards
+CREATE POLICY "Allow all for authenticated users" ON public.awards FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow select for everyone" ON public.awards FOR SELECT TO public USING (true);
+
+-- Profiles & User Roles
+CREATE POLICY "Allow users to read their own role" ON public.user_roles FOR SELECT TO authenticated USING (auth.uid() = user_id);
+CREATE POLICY "Allow users to read profiles" ON public.profiles FOR SELECT TO authenticated USING (true);
+
 -- 4. Create a function to handle new user signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger
