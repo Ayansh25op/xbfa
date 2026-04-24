@@ -56,7 +56,7 @@ let currentSeasonName = "";
 
 
 // --- STATE MANAGEMENT ---
-let studioMatch = { teamA: [], teamB: [], events: [] };
+let studioMatch = { team_a: [], team_b: [], events: [] };
 let currentPhoto = "";
 
 // ===== SUPABASE DATA LOGIC =====
@@ -104,7 +104,7 @@ async function loadMatches() {
         matches = (data || []).map(m => ({
             ...m,
             ratings: (m.match_ratings || []).map(r => ({
-                playerId: r.player_id,
+                player_id: r.player_id,
                 rating: r.rating
             }))
         }));
@@ -164,7 +164,7 @@ async function saveMatchToDB(match) {
             if (ratings.length > 0) {
                 const ratingsToInsert = ratings.map(r => ({
                     match_id: matchId,
-                    player_id: r.playerId,
+                    player_id: r.player_id,
                     rating: r.rating
                 }));
                 const { error: rError } = await supabase.from('match_ratings').insert(ratingsToInsert);
@@ -223,7 +223,7 @@ function recalculateStats() {
         });
 
         // 2. Participation Count (Matches Played)
-        const uniqueParticipants = [...new Set([...(m.teamA || []), ...(m.teamB || [])])];
+        const uniqueParticipants = [...new Set([...(m.team_a || []), ...(m.team_b || [])])];
         uniqueParticipants.forEach(pid => {
             const p = activePlayers.find(pl => pl && String(pl.id) === String(pid));
             if (p) p.matches = (p.matches || 0) + 1;
@@ -232,7 +232,7 @@ function recalculateStats() {
         // 3. Ratings
         if (m.ratings) {
             m.ratings.forEach(r => {
-                const p = activePlayers.find(pl => pl && String(pl.id) === String(r.playerId));
+                const p = activePlayers.find(pl => pl && String(pl.id) === String(r.player_id));
                 if (p && r.rating) {
                     p.totalRatingScore += parseFloat(r.rating);
                     p.ratingCount += 1;
@@ -351,7 +351,7 @@ if(star) {
     if(latest) {
         document.getElementById('latest-match-hero').innerHTML = `
             <div class="match-card" style="width:100%" onclick="viewMatchDetail('${latest.id}')">
-                <div class="match-score">${latest.scoreA} - ${latest.scoreB}</div>
+                <div class="match-score">${latest.score_a} - ${latest.score_b}</div>
                 <div class="match-meta">${latest.title} • ${latest.date}</div>
             </div>`;
     }
@@ -363,7 +363,7 @@ function renderMatches() {
     list.innerHTML = matches.slice().reverse().map(m => `
         <div class="match-card" style="position:relative">
             <div onclick="viewMatchDetail('${m.id}')" style="cursor:pointer">
-                <div class="match-score">${m.scoreA} - ${m.scoreB}</div>
+                <div class="match-score">${m.score_a} - ${m.score_b}</div>
                 <div class="match-meta">${m.title} • ${m.date}</div>
             </div>
             ${userRole === "admin" ? `
@@ -386,7 +386,7 @@ function viewMatchDetail(id) {
     if (!m) return;
     const getP = (pid) => players.find(x => x && x.id == pid)?.name || "Unknown";
     const getRating = (pid) => {
-        const r = (m.ratings || []).find(x => String(x.playerId) === String(pid));
+        const r = (m.ratings || []).find(x => String(x.player_id) === String(pid));
         return r ? r.rating : null;
     };
 
@@ -415,12 +415,12 @@ function viewMatchDetail(id) {
             <div class="score-display">
                 <div class="team-side">
                     <div class="team-name-big" style="color:var(--team-a)">TEAM A</div>
-                    <div class="score-num">${m.scoreA}</div>
+                    <div class="score-num">${m.score_a}</div>
                 </div>
                 <div class="vs-badge">VS</div>
                 <div class="team-side">
                     <div class="team-name-big" style="color:var(--team-b)">TEAM B</div>
-                    <div class="score-num">${m.scoreB}</div>
+                    <div class="score-num">${m.score_b}</div>
                 </div>
             </div>
         </div>
@@ -429,13 +429,13 @@ function viewMatchDetail(id) {
             <div class="lineup-column">
                 <h4><i class="fas fa-users"></i> Squad A</h4>
                 <div class="player-row-container">
-                    ${renderLineup(m.teamA, 'team-a')}
+                    ${renderLineup(m.team_a, 'team-a')}
                 </div>
             </div>
             <div class="lineup-column">
                 <h4><i class="fas fa-users"></i> Squad B</h4>
                 <div class="player-row-container">
-                    ${renderLineup(m.teamB, 'team-b')}
+                    ${renderLineup(m.team_b, 'team-b')}
                 </div>
             </div>
         </div>
@@ -559,14 +559,14 @@ async function handleSaveAward() {
 
     const id = document.getElementById('as-id').value;
     const name = document.getElementById('as-name').value.trim();
-    const playerId = document.getElementById('as-player').value;
+    const player_id = document.getElementById('as-player').value;
 
-    if (!name || !playerId) {
+    if (!name || !player_id) {
         showAlertModal("Please fill in all fields");
         return;
     }
 
-    const awardData = { name, player_id: playerId, season_id: currentSeasonId };
+    const awardData = { name, player_id, season_id: currentSeasonId };
 
     try {
         if (id) {
@@ -627,7 +627,7 @@ function createCardHTML(p) {
             ` : ``}
             
             <!-- Large Background Jersey Number -->
-            <div class="card-number ${posClass}">${p.jerseyNumber || ''}</div>
+            <div class="card-number ${posClass}">${p.jersey_number || ''}</div>
 
             <img src="${p.photo || 'https://via.placeholder.com/150?text=FC26'}" class="player-img" onclick="viewProfile('${p.id}')">
             <div class="name" onclick="viewProfile('${p.id}')">${p.name}</div>
@@ -740,7 +740,7 @@ function openPlayerStudio(id = null) {
         if (p) {
             document.getElementById('f-id').value = p.id;
             document.getElementById('f-name').value = p.name;
-            document.getElementById('f-number').value = p.jerseyNumber || "";
+            document.getElementById('f-number').value = p.jersey_number || "";
             document.getElementById('f-pos').value = p.pos;
             document.getElementById('f-rating').value = p.rating;
             currentPhoto = p.photo || "";
@@ -757,11 +757,11 @@ function updateStatFields() {
 
 function updateLivePreview() {
     const name = document.getElementById('f-name').value || "NEW PLAYER";
-    const jerseyNumber = document.getElementById('f-number').value;
+    const jersey_number = document.getElementById('f-number').value;
     const pos = document.getElementById('f-pos').value;
     const rating = document.getElementById('f-rating').value;
     document.getElementById('f-rating-val').innerText = rating;
-    document.getElementById('ps-preview-container').innerHTML = createCardHTML({name, pos, rating, jerseyNumber, photo: currentPhoto, goals:0, matches:0, id:99});
+    document.getElementById('ps-preview-container').innerHTML = createCardHTML({name, pos, rating, jersey_number, photo: currentPhoto, goals:0, matches:0, id:99});
 }
 
 async function handleSavePlayer() {
@@ -769,7 +769,7 @@ async function handleSavePlayer() {
   
   const idInput = document.getElementById('f-id').value;
   const name = document.getElementById('f-name').value;
-  const jerseyNumber = parseInt(document.getElementById('f-number').value) || null;
+  const jersey_number = parseInt(document.getElementById('f-number').value) || null;
   const pos = document.getElementById('f-pos').value;
   const rating = parseInt(document.getElementById('f-rating').value);
 
@@ -780,7 +780,7 @@ async function handleSavePlayer() {
 
   const data = {
     name,
-    jerseyNumber,
+    jersey_number,
     pos,
     rating,
     photo: currentPhoto,
@@ -811,7 +811,7 @@ async function init() {
 // --- MATCH STUDIO HANDLING ---
 function openMatchStudio() {
     const isAdmin = userRole === "admin";
-    studioMatch = { teamA: [], teamB: [], events: [] };
+    studioMatch = { team_a: [], team_b: [], events: [] };
     window.editingMatchId = null;
     
     document.getElementById('ms-date').value = new Date().toISOString().split('T')[0];
@@ -852,7 +852,7 @@ function renderSelectionGrid() {
 
     pool.innerHTML = players.map(p => {
         if (!p) return "";
-        let state = studioMatch.teamA.some(pid => String(pid) === String(p.id)) ? 'active-a' : (studioMatch.teamB.some(pid => String(pid) === String(p.id)) ? 'active-b' : '');
+        let state = studioMatch.team_a.some(pid => String(pid) === String(p.id)) ? 'active-a' : (studioMatch.team_b.some(pid => String(pid) === String(p.id)) ? 'active-b' : '');
         return `<button class="player-chip-mini ${state}" ${!isAdmin ? 'disabled' : ''} onclick="cyclePlayer('${p.id}')">${p.name}</button>`;
     }).join('');
 
@@ -863,11 +863,11 @@ function renderSelectionGrid() {
         return `<div class="player-chip-mini active-${team.toLowerCase()}">${p ? p.name : 'Unknown'}</div>`;
     }).join('');
 
-    document.getElementById('lineup-a-list-modern').innerHTML = renderChips(studioMatch.teamA, 'A');
-    document.getElementById('lineup-b-list-modern').innerHTML = renderChips(studioMatch.teamB, 'B');
+    document.getElementById('lineup-a-list-modern').innerHTML = renderChips(studioMatch.team_a, 'A');
+    document.getElementById('lineup-b-list-modern').innerHTML = renderChips(studioMatch.team_b, 'B');
 
     // Update all award selectors with current squad
-    const all = [...studioMatch.teamA, ...studioMatch.teamB];
+    const all = [...studioMatch.team_a, ...studioMatch.team_b];
     const awardSelectors = document.querySelectorAll('.ms-award-player-select');
     const opts = '<option value="">Select Player</option>' + all.map(pid => `<option value="${pid}">${players.find(p => p && String(p.id) === String(pid))?.name || "Unknown"}</option>`).join('');
     
@@ -891,16 +891,16 @@ function renderSelectionGrid() {
 
 function cyclePlayer(id) {
     if (userRole !== "admin") return;
-    const inA = studioMatch.teamA.some(x => String(x) === String(id));
-    const inB = studioMatch.teamB.some(x => String(x) === String(id));
+    const inA = studioMatch.team_a.some(x => String(x) === String(id));
+    const inB = studioMatch.team_b.some(x => String(x) === String(id));
 
     if (!inA && !inB) {
-        studioMatch.teamA.push(id);
+        studioMatch.team_a.push(id);
     } else if (inA) {
-        studioMatch.teamA = studioMatch.teamA.filter(i => String(i) !== String(id));
-        studioMatch.teamB.push(id);
+        studioMatch.team_a = studioMatch.team_a.filter(i => String(i) !== String(id));
+        studioMatch.team_b.push(id);
     } else {
-        studioMatch.teamB = studioMatch.teamB.filter(i => String(i) !== String(id));
+        studioMatch.team_b = studioMatch.team_b.filter(i => String(i) !== String(id));
     }
     renderSelectionGrid();
     renderRatingsGrid(studioMatch.ratings || []);
@@ -908,7 +908,7 @@ function cyclePlayer(id) {
 
 function addGoalRow(initialData = null) {
     const isAdmin = userRole === "admin";
-    const all = [...studioMatch.teamA, ...studioMatch.teamB];
+    const all = [...studioMatch.team_a, ...studioMatch.team_b];
     const opts = '<option value="">Select Scorer</option>' + all.map(pid => `<option value="${pid}">${players.find(p => p && String(p.id) === String(pid))?.name || "Unknown"}</option>`).join('');
     
     const div = document.createElement('div');
@@ -944,7 +944,7 @@ function addGoalRow(initialData = null) {
 function addAwardRowInStudio(label = "", playerVal = "") {
     const isAdmin = userRole === "admin";
     const container = document.getElementById('ms-awards-container-dynamic');
-    const all = [...studioMatch.teamA, ...studioMatch.teamB];
+    const all = [...studioMatch.team_a, ...studioMatch.team_b];
     const opts = '<option value="">Select Player</option>' + all.map(pid => `<option value="${pid}">${players.find(p => p && String(p.id) === String(pid))?.name || "Unknown"}</option>`).join('');
     
     const div = document.createElement('div');
@@ -974,7 +974,7 @@ function renderRatingsGrid(existingRatings = []) {
     const container = document.getElementById('ms-ratings-container-dynamic');
     if (!container) return;
     
-    const all = [...studioMatch.teamA, ...studioMatch.teamB];
+    const all = [...studioMatch.team_a, ...studioMatch.team_b];
     const isAdmin = userRole === "admin";
     
     if (all.length === 0) {
@@ -985,7 +985,7 @@ function renderRatingsGrid(existingRatings = []) {
     container.innerHTML = all.map(pid => {
         const p = players.find(x => x && String(x.id) === String(pid));
         if (!p) return "";
-        const r = existingRatings.find(x => String(x.playerId) === String(pid));
+        const r = existingRatings.find(x => String(x.player_id) === String(pid));
         const val = r ? r.rating : "";
         
         return `
@@ -1024,9 +1024,9 @@ async function saveMatch() {
 
             if (!isNaN(min) && scorer) {
                 let team;
-                if (studioMatch.teamA.some(id => String(id) === String(scorer))) {
+                if (studioMatch.team_a.some(id => String(id) === String(scorer))) {
                     team = 'A';
-                } else if (studioMatch.teamB.some(id => String(id) === String(scorer))) {
+                } else if (studioMatch.team_b.some(id => String(id) === String(scorer))) {
                     team = 'B';
                 } else {
                     team = 'A'; // fallback
@@ -1036,15 +1036,15 @@ async function saveMatch() {
         });
 
         // calculate score
-        let scoreA = 0;
-        let scoreB = 0;
+        let score_a = 0;
+        let score_b = 0;
         events.forEach(e => {
             if (e.ownGoal) {
-                if (e.team === 'A') scoreB++;
-                else scoreA++;
+                if (e.team === 'A') score_b++;
+                else score_a++;
             } else {
-                if (e.team === 'A') scoreA++;
-                else scoreB++;
+                if (e.team === 'A') score_a++;
+                else score_b++;
             }
         });
 
@@ -1066,7 +1066,7 @@ async function saveMatch() {
             const val = input.value;
             if (val) {
                 ratings.push({
-                    playerId: input.dataset.playerId,
+                    player_id: input.dataset.player_id,
                     rating: parseFloat(val).toFixed(1)
                 });
             }
@@ -1075,13 +1075,13 @@ async function saveMatch() {
         const data = {
             date: document.getElementById('ms-date').value,
             title: document.getElementById('ms-title').value || "New Match",
-            teamA: [...studioMatch.teamA],
-            teamB: [...studioMatch.teamB],
+            team_a: [...studioMatch.team_a],
+            team_b: [...studioMatch.team_b],
             events: events,
-            scoreA,
-            scoreB,
-            awards: awards,
-            ratings: ratings
+            score_a,
+            score_b,
+            awards,
+            ratings
         };
 
         if (window.editingMatchId) {
@@ -1104,8 +1104,8 @@ function editMatch(id) {
 
     window.editingMatchId = id;
     studioMatch = { 
-        teamA: [...match.teamA], 
-        teamB: [...match.teamB], 
+        team_a: [...match.team_a], 
+        team_b: [...match.team_b], 
         events: [...match.events] 
     };
 
@@ -1189,7 +1189,7 @@ function renderSeasonManager() {
         const isActive = s.id == currentSeasonId;
         const playerCount = (s.players || []).length;
         const matchCount = (s.matches || []).length;
-        const goalCount = (s.matches || []).reduce((acc, m) => acc + (m.scoreA || 0) + (m.scoreB || 0), 0);
+        const goalCount = (s.matches || []).reduce((acc, m) => acc + (m.score_a || 0) + (m.score_b || 0), 0);
 
         return `
         <div class="season-card-modern ${isActive ? 'active' : ''}" id="season-card-${s.id}">
