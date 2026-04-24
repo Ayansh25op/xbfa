@@ -484,15 +484,15 @@ function viewMatchDetail(id) {
         <div class="awards-grid-modern">
             <div class="award-card-mini">
                 <span class="award-label">MVP</span>
-                <span class="award-winner">${getP(m.awards.mvp)}</span>
+                <span class="award-winner">${getP(m.awards?.mvp)}</span>
             </div>
             <div class="award-card-mini lvp">
                 <span class="award-label">LVP</span>
-                <span class="award-winner">${getP(m.awards.lvp)}</span>
+                <span class="award-winner">${getP(m.awards?.lvp)}</span>
             </div>
             <div class="award-card-mini gk">
                 <span class="award-label">BEST GK</span>
-                <span class="award-winner">${getP(m.awards.gk)}</span>
+                <span class="award-winner">${getP(m.awards?.gk)}</span>
             </div>
         </div>
     `;
@@ -1356,9 +1356,11 @@ function editMatch(id) {
     match.events.forEach(ev => addGoalRow(ev));
 
     document.getElementById('ms-awards-container-dynamic').innerHTML = "";
-    if (match.awards.mvp) addAwardRowInStudio("MVP", match.awards.mvp);
-    if (match.awards.lvp) addAwardRowInStudio("LVP", match.awards.lvp);
-    if (match.awards.gk) addAwardRowInStudio("BEST GK", match.awards.gk);
+    if (match.awards) {
+        if (match.awards.mvp) addAwardRowInStudio("MVP", match.awards.mvp);
+        if (match.awards.lvp) addAwardRowInStudio("LVP", match.awards.lvp);
+        if (match.awards.gk) addAwardRowInStudio("BEST GK", match.awards.gk);
+    }
 
     const finalizeBtn = document.getElementById('ms-finalize-btn');
     if (finalizeBtn) finalizeBtn.classList.toggle('hidden', !isAdmin);
