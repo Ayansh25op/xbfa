@@ -147,27 +147,38 @@ async function deletePlayerFromDB(id) {
 
 async function saveMatchToDB(match) {
     if (!match) return;
-    console.log("Saving match to DB:", match);
-    const { id, ratings, awards, ...matchData } = match;
-    matchData.season_id = currentSeasonId;
+    
+    // EXPLICITLY build the object for public.matches table to avoid schema mismatch
+    // DO NOT use spread operators here
+    const cleanMatchData = {
+        date: match.date,
+        title: match.title,
+        team_a: match.team_a,
+        team_b: match.team_b,
+        events: match.events,
+        score_a: match.score_a,
+        score_b: match.score_b,
+        season_id: currentSeasonId
+    };
+
+    console.log("MATCH DATA BEFORE INSERT/UPDATE (CLEAN):", cleanMatchData);
 
     try {
-        let matchId = id;
-        if (id && String(id).length > 20) {
-            const { error } = await supabase.from('matches').update(matchData).eq('id', id);
+        let matchId = match.id;
+        if (match.id && String(match.id).length > 20) {
+            const { error } = await supabase.from('matches').update(cleanMatchData).eq('id', match.id);
             if (error) throw error;
         } else {
-            delete matchData.id;
-            const { data, error } = await supabase.from('matches').insert([matchData]).select();
+            const { data, error } = await supabase.from('matches').insert([cleanMatchData]).select();
             if (error) throw error;
             matchId = data[0].id;
         }
 
         // Handle ratings
-        if (ratings) {
+        if (match.ratings) {
             await supabase.from('match_ratings').delete().eq('match_id', matchId);
-            if (ratings.length > 0) {
-                const ratingsToInsert = ratings.map(r => ({
+            if (match.ratings.length > 0) {
+                const ratingsToInsert = match.ratings.map(r => ({
                     match_id: matchId,
                     player_id: r.player_id,
                     rating: r.rating
@@ -178,12 +189,12 @@ async function saveMatchToDB(match) {
         }
 
         // Handle match awards
-        if (awards) {
+        if (match.awards) {
             await supabase.from('match_awards').delete().eq('match_id', matchId);
             const awardsToInsert = [];
-            if (awards.mvp) awardsToInsert.push({ match_id: matchId, type: 'mvp', player_id: awards.mvp });
-            if (awards.lvp) awardsToInsert.push({ match_id: matchId, type: 'lvp', player_id: awards.lvp });
-            if (awards.gk) awardsToInsert.push({ match_id: matchId, type: 'gk', player_id: awards.gk });
+            if (match.awards.mvp) awardsToInsert.push({ match_id: matchId, type: 'mvp', player_id: match.awards.mvp });
+            if (match.awards.lvp) awardsToInsert.push({ match_id: matchId, type: 'lvp', player_id: match.awards.lvp });
+            if (match.awards.gk) awardsToInsert.push({ match_id: matchId, type: 'gk', player_id: match.awards.gk });
             
             if (awardsToInsert.length > 0) {
                 const { error: aError } = await supabase.from('match_awards').insert(awardsToInsert);
