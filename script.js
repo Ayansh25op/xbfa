@@ -1,11 +1,51 @@
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+import { supabase } from './supabase.js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+// --- AUTH & SESSION ---
+let session = null;
+let userRole = "visitor";
 
-const user = localStorage.getItem("loggedInUser");
-const userRole = localStorage.getItem("userRole") || "admin";
+async function checkAuth() {
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    session = currentSession;
+
+    if (!session) {
+        window.location.href = "login.html";
+        return;
+    }
+
+    // Load User Role
+    const { data: roleData, error } = await supabase.from('user_roles')
+        .select('role')
+        .eq('user_id', session.user.id)
+        .single();
+
+    if (roleData) {
+        userRole = roleData.role;
+    } else {
+        // Default to visitor if no role assigned
+        userRole = "visitor";
+    }
+
+    // Set globally for other functions
+    window.userRole = userRole;
+
+    await init();
+}
+
+// Replace old init call
+window.addEventListener('DOMContentLoaded', checkAuth);
+
+async function logout() {
+    await supabase.auth.signOut();
+    window.location.href = "login.html";
+}
+
+// Expose globally for HTML onclick handlers
+window.logout = logout;
+window.userRole = userRole;
+
+// Map the old global 'user' to session.user.email for backward compatibility if nav shows it
+let user = null;
 
 // Centralized Data Storage
 let seasons = [];
@@ -14,9 +54,7 @@ let matches = [];
 let currentSeasonId = null;
 let currentSeasonName = "";
 
-if (!user) {
-    window.location.href = "login.html";
-}
+// Removed redundant if(!user) redirect as checkAuth handles it
 
 
 // --- STATE MANAGEMENT ---
@@ -235,7 +273,18 @@ async function renderAll() {
     await renderAwards();
 
     // UI protection: keep settings visible but hide admin-only controls
-    const isAdmin = userRole === "admin";
+    const isAdmin = window.userRole === "admin";
+
+    // Update User Info in Settings
+    const userDisplay = document.querySelector('.settings-group.visitor-only .settings-desc');
+    if (userDisplay && session) {
+        userDisplay.innerHTML = `Signed in as <span class="accent-text">${session.user.email}</span><br>Role: ${window.userRole.toUpperCase()}`;
+    }
+    
+    const adminUserDisplay = document.querySelector('.settings-group.admin-only .settings-desc');
+    if (adminUserDisplay && session && isAdmin) {
+        adminUserDisplay.innerHTML = `Control core system. Logged in as <span class="accent-text">${session.user.email}</span>`;
+    }
     
     // 1. Header / Common Buttons
     document.querySelectorAll('.header-actions .btn-neon').forEach(btn => {
@@ -1477,13 +1526,7 @@ window.addAwardRowInStudio = addAwardRowInStudio;
 window.saveMatch = saveMatch;
 window.togglePlayerPool = togglePlayerPool;
 window.toggleStudioSection = toggleStudioSection;
-// ===== AUTH =====
-function logout() {
-    localStorage.removeItem("loggedInUser");
-    window.location.href = "login.html";
-}
-
-// make it globally accessible
+// Expose globally
 window.logout = logout;
 
 // Ensure role is globally accessible
