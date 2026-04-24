@@ -1,21 +1,18 @@
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
+
 const user = localStorage.getItem("loggedInUser");
-const userRole = localStorage.getItem("userRole") || "admin"; // default admin
+const userRole = localStorage.getItem("userRole") || "admin";
 
 // Centralized Data Storage
-let seasons = JSON.parse(localStorage.getItem("seasons")) || [
-    { id: "season_default", name: "Season 1", players: [], matches: [], awards: [] }
-];
-let currentSeasonId = localStorage.getItem("currentSeasonId") || (seasons[0] ? seasons[0].id : "season_default");
-
-const saveSeasons = () => {
-    localStorage.setItem("seasons", JSON.stringify(seasons));
-    if (currentSeasonId) localStorage.setItem("currentSeasonId", currentSeasonId);
-};
-
-// Global helper to get the active season data
-const getCurrentSeason = () => {
-    return seasons.find(s => s && s.id == currentSeasonId) || seasons[0] || { id: "err", players: [], matches: [] };
-};
+let seasons = [];
+let players = [];
+let matches = [];
+let currentSeasonId = null;
+let currentSeasonName = "";
 
 if (!user) {
     window.location.href = "login.html";
@@ -23,65 +20,127 @@ if (!user) {
 
 
 // --- STATE MANAGEMENT ---
-let players = [];
-let matches = [];
 let studioMatch = { teamA: [], teamB: [], events: [] };
 let currentPhoto = "";
 
-// ===== PLAYERS (LOCAL STORAGE) =====
+// ===== SUPABASE DATA LOGIC =====
 
-function loadPlayers() {
-    const current = getCurrentSeason();
-    players = (current.players || []).filter(p => p);
-}
-
-function savePlayerToDB(player) {
-    if (!player || !player.id) return;
-    const current = getCurrentSeason();
-    if (!current.players) current.players = [];
-
-    const idx = current.players.findIndex(p => p && String(p.id) === String(player.id));
-    if (idx !== -1) {
-        current.players[idx] = { ...current.players[idx], ...player };
+async function loadSeasons() {
+    const { data, error } = await supabase.from('seasons').select('*').order('name');
+    if (error) {
+        console.error("Error loading seasons:", error);
+        seasons = [{ id: "season_default", name: "Season 1" }];
+    } else if (data && data.length > 0) {
+        seasons = data;
     } else {
-        current.players.push(player);
+        // Initial setup if empty
+        const { data: newData, error: newError } = await supabase.from('seasons').insert([{ name: "Season 1" }]).select();
+        if (newError) {
+            seasons = [{ id: "season_default", name: "Season 1" }];
+        } else {
+            seasons = newData;
+        }
     }
-    saveSeasons();
+
+    if (!currentSeasonId || !seasons.find(s => s.id == currentSeasonId)) {
+        currentSeasonId = seasons[0].id;
+    }
+    currentSeasonName = seasons.find(s => s.id == currentSeasonId)?.name || seasons[0].name;
 }
 
-function deletePlayerFromDB(id) {
-    const current = getCurrentSeason();
-    if (!current || !current.players) return;
-    current.players = current.players.filter(p => p && String(p.id) !== String(id));
-    saveSeasons();
-}
-
-// ===== MATCHES (LOCAL STORAGE) =====
-
-function loadMatches() {
-    const current = getCurrentSeason();
-    matches = (current.matches || []).filter(m => m);
-}
-
-function saveMatchToDB(match) {
-    if (!match || !match.id) return;
-    const current = getCurrentSeason();
-    if (!current.matches) current.matches = [];
-
-    const idx = current.matches.findIndex(m => m && m.id == match.id);
-    if (idx !== -1) {
-        current.matches[idx] = { ...current.matches[idx], ...match };
+async function loadPlayers() {
+    const { data, error } = await supabase.from('players').select('*');
+    if (error) {
+        console.error("Error loading players:", error);
+        players = [];
     } else {
-        current.matches.push(match);
+        players = data || [];
     }
-    saveSeasons();
 }
 
-function deleteMatchFromDB(id) {
-    const current = getCurrentSeason();
-    if (!current || !current.matches) return;
-    current.matches = current.matches.filter(m => m && m.id != id);
-    saveSeasons();
+async function loadMatches() {
+    if (!currentSeasonId) return;
+    const { data, error } = await supabase.from('matches').select('*, match_ratings(*)').eq('season_id', currentSeasonId);
+    if (error) {
+        console.error("Error loading matches:", error);
+        matches = [];
+    } else {
+        matches = (data || []).map(m => ({
+            ...m,
+            ratings: (m.match_ratings || []).map(r => ({
+                playerId: r.player_id,
+                rating: r.rating
+            }))
+        }));
+    }
+}
+
+async function savePlayerToDB(player) {
+    if (!player) return;
+    const { id, ...playerData } = player;
+    
+    if (id && String(id).length > 20) { // Check if it's a UUID
+        const { error } = await supabase.from('players').update(playerData).eq('id', id);
+        if (error) console.error("Error updating player:", error);
+    } else {
+        const { error } = await supabase.from('players').insert([playerData]);
+        if (error) console.error("Error inserting player:", error);
+    }
+    await loadPlayers();
+    await recalculateStats();
+}
+
+async function deletePlayerFromDB(id) {
+    const { error } = await supabase.from('players').delete().eq('id', id);
+    if (error) console.error("Error deleting player:", error);
+    await loadPlayers();
+    await recalculateStats();
+}
+
+async function saveMatchToDB(match) {
+    if (!match) return;
+    const { id, ratings, ...matchData } = match;
+    matchData.season_id = currentSeasonId;
+
+    let matchId = id;
+    if (id && String(id).length > 20) {
+        const { error } = await supabase.from('matches').update(matchData).eq('id', id);
+        if (error) console.error("Error updating match:", error);
+    } else {
+        delete matchData.id;
+        const { data, error } = await supabase.from('matches').insert([matchData]).select();
+        if (error) {
+            console.error("Error inserting match:", error);
+            return;
+        }
+        matchId = data[0].id;
+    }
+
+    // Handle ratings
+    if (ratings) {
+        await supabase.from('match_ratings').delete().eq('match_id', matchId);
+        if (ratings.length > 0) {
+            const ratingsToInsert = ratings.map(r => ({
+                match_id: matchId,
+                player_id: r.playerId,
+                rating: r.rating
+            }));
+            const { error: rError } = await supabase.from('match_ratings').insert(ratingsToInsert);
+            if (rError) console.error("Error inserting ratings:", rError);
+        }
+    }
+
+    await loadMatches();
+    await recalculateStats();
+    renderAll();
+}
+
+async function deleteMatchFromDB(id) {
+    const { error } = await supabase.from('matches').delete().eq('id', id);
+    if (error) console.error("Error deleting match:", error);
+    await loadMatches();
+    await recalculateStats();
+    renderAll();
 }
 
 /**
@@ -90,9 +149,8 @@ function deleteMatchFromDB(id) {
  * This ensures the dashboard and leaderboards stay accurate after deletions or edits.
  */
 function recalculateStats() {
-    const current = getCurrentSeason();
-    const activeMatches = (current.matches || []).filter(m => m);
-    const activePlayers = (current.players || []).filter(p => p);
+    const activeMatches = matches;
+    const activePlayers = players;
 
     // Reset stats for all active players
     activePlayers.forEach(p => {
@@ -112,7 +170,7 @@ function recalculateStats() {
         // 1. Goal Distribution
         (m.events || []).forEach(e => {
             if (e && !e.ownGoal) {
-                const p = activePlayers.find(pl => pl && pl.id == e.scorer);
+                const p = activePlayers.find(pl => pl && String(pl.id) === String(e.scorer));
                 if (p) p.goals = (p.goals || 0) + 1;
             }
         });
@@ -120,14 +178,14 @@ function recalculateStats() {
         // 2. Participation Count (Matches Played)
         const uniqueParticipants = [...new Set([...(m.teamA || []), ...(m.teamB || [])])];
         uniqueParticipants.forEach(pid => {
-            const p = activePlayers.find(pl => pl && pl.id == pid);
+            const p = activePlayers.find(pl => pl && String(pl.id) === String(pid));
             if (p) p.matches = (p.matches || 0) + 1;
         });
 
         // 3. Ratings
         if (m.ratings) {
             m.ratings.forEach(r => {
-                const p = activePlayers.find(pl => pl && pl.id == r.playerId);
+                const p = activePlayers.find(pl => pl && String(pl.id) === String(r.playerId));
                 if (p && r.rating) {
                     p.totalRatingScore += parseFloat(r.rating);
                     p.ratingCount += 1;
@@ -144,11 +202,8 @@ function recalculateStats() {
         delete p.totalRatingScore;
         delete p.ratingCount;
     });
-
-    saveSeasons();
 }
 
-let playerIdCounter = parseInt(localStorage.getItem("playerIdCounter")) || 1;
 
 // --- NAVIGATION ---
 function showPage(id) {
@@ -170,14 +225,14 @@ function showPage(id) {
 }
 
 // --- RENDER CORE ---
-function renderAll() {
-    loadPlayers();
-    loadMatches();
-    renderDashboard();
+async function renderAll() {
+    await loadPlayers();
+    await loadMatches();
+    await renderDashboard();
     renderSquad();
     renderMatches();
     renderLeaderboards();
-    renderAwards();
+    await renderAwards();
 
     // UI protection: keep settings visible but hide admin-only controls
     const isAdmin = userRole === "admin";
@@ -198,7 +253,7 @@ function renderAll() {
 }
 
 // FIX 1: DASHBOARD STATS (Structured HTML Blocks)
-function renderDashboard() {
+async function renderDashboard() {
     const totalGoals = players.reduce((s,p) => s + (p.goals || 0), 0);
     
     document.getElementById('dashboard-stats').innerHTML = `
@@ -217,9 +272,8 @@ function renderDashboard() {
     `;
 
 // --- MVP FIX (SEASON BASED) ---
-const current = getCurrentSeason();
-const mvpAward = (current.awards || []).find(a => a && a.name && a.name.toUpperCase().includes("MVP"));
-const mvpId = mvpAward ? mvpAward.playerId : null;
+const { data: mvpAward, error } = await supabase.from('awards').select('*').eq('season_id', currentSeasonId).ilike('name', '%MVP%').single();
+const mvpId = mvpAward ? mvpAward.player_id : null;
 
 let star = null;
 
@@ -368,15 +422,15 @@ function viewMatchDetail(id) {
 }
 
 // FIX 4: AWARDS DISPLAY (Redesigned Modern Cards)
-function renderAwards() {
-    const current = getCurrentSeason();
-    const awards = current.awards || [];
+async function renderAwards() {
     const isAdmin = userRole === "admin";
 
     const container = document.getElementById('awards-display');
     if (!container) return;
 
-    if (awards.length === 0) {
+    const { data: awards, error } = await supabase.from('awards').select('*').eq('season_id', currentSeasonId);
+
+    if (!awards || awards.length === 0) {
         container.innerHTML = `
             <div style="grid-column: 1/-1; padding: 80px 20px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center;">
                 <div style="font-size: 3.5rem; color: rgba(255,255,255,0.05); margin-bottom: 20px;">
@@ -390,7 +444,7 @@ function renderAwards() {
     }
 
     container.innerHTML = awards.map(a => {
-        const winner = players.find(p => p && String(p.id) === String(a.playerId));
+        const winner = players.find(p => p && String(p.id) === String(a.player_id));
         const photo = winner ? winner.photo : 'https://via.placeholder.com/150?text=No+Winner';
         const name = winner ? winner.name : '<span class="no-winner-msg">No winner selected</span>';
 
@@ -415,7 +469,7 @@ function renderAwards() {
     }).join('');
 }
 
-function openAwardStudio(id = null) {
+async function openAwardStudio(id = null) {
     if (userRole !== "admin") return;
     const f = document.getElementById('as-form');
     f.reset();
@@ -428,19 +482,18 @@ function openAwardStudio(id = null) {
         players.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
 
     if (id) {
-        const current = getCurrentSeason();
-        const award = (current.awards || []).find(a => a.id === id);
+        const { data: award, error } = await supabase.from('awards').select('*').eq('id', id).single();
         if (award) {
             document.getElementById('as-id').value = award.id;
             document.getElementById('as-name').value = award.name;
-            document.getElementById('as-player').value = award.playerId;
+            document.getElementById('as-player').value = award.player_id;
         }
     }
 
     toggleModal('award-studio-modal', true);
 }
 
-document.getElementById('as-form').onsubmit = (e) => {
+document.getElementById('as-form').onsubmit = async (e) => {
     e.preventDefault();
     if (userRole !== "admin") return;
 
@@ -450,37 +503,24 @@ document.getElementById('as-form').onsubmit = (e) => {
 
     if (!name || !playerId) return;
 
-    const current = getCurrentSeason();
-    if (!current.awards) current.awards = [];
+    const awardData = { name, player_id: playerId, season_id: currentSeasonId };
 
     if (id) {
-        const idx = current.awards.findIndex(a => a.id === id);
-        if (idx !== -1) {
-            current.awards[idx] = { id, name, playerId };
-        }
+        await supabase.from('awards').update(awardData).eq('id', id);
     } else {
-        current.awards.push({
-            id: "aw_" + Date.now(),
-            name,
-            playerId
-        });
+        await supabase.from('awards').insert([awardData]);
     }
 
-    saveSeasons();
     toggleModal('award-studio-modal', false);
-    renderAwards();
+    await renderAwards();
 };
 
-function deleteAward(id) {
+async function deleteAward(id) {
     if (userRole !== "admin") return;
-    openConfirmModal("Delete this award?", () => {
-        const current = getCurrentSeason();
-        if (current.awards) {
-            current.awards = current.awards.filter(a => a.id !== id);
-            saveSeasons();
-            renderAwards();
-        }
-    });
+    openConfirmModal("Delete this award?", async () => {
+        await supabase.from('awards').delete().eq('id', id);
+        await renderAwards();
+    }, "delete");
 }
 
 // --- PLAYER SQUAD RENDERING ---
@@ -572,14 +612,12 @@ window.onclick = function(event) {
     }
 };
 
-function deletePlayer(id) {
+async function deletePlayer(id) {
     if (userRole !== "admin") return;
-    openConfirmModal("Delete this player?", () => {
-        deletePlayerFromDB(id);
-        recalculateStats();
-        saveSeasons();
-        renderAll();
-    });
+    openConfirmModal("Delete this player?", async () => {
+        await deletePlayerFromDB(id);
+        await renderAll();
+    }, "delete");
 }
 
 // --- LEADERBOARDS RENDERING ---
@@ -601,36 +639,19 @@ function toggleModal(id, show) {
     else el.classList.remove('show-flex');
 }
 
-function save() {
-    const seasonsRaw = localStorage.getItem("seasons");
-    const seasons = seasonsRaw ? JSON.parse(seasonsRaw) : [];
-    const currentSeasonId = localStorage.getItem("currentSeasonId");
 
-    const index = seasons.findIndex(s => s && s.id == currentSeasonId);
-
-    if (index !== -1) {
-        seasons[index].players = [...players];
-        seasons[index].matches = [...matches];
-    }
-
-    localStorage.setItem("seasons", JSON.stringify(seasons));
-
-    // 🔥 ADD THIS LINE
-    localStorage.setItem("playerIdCounter", playerIdCounter);
-
-    renderDashboard();
-    renderSquad();
-    renderMatches();
-    renderLeaderboards();
-    renderAwards();
-}
-
-function resetSystem() {
+async function resetSystem() {
     if (userRole !== "admin") return;
-    openConfirmModal("Wipe all data?", () => {
+    openConfirmModal("Wipe all data?", async () => {
+        // Drop all data using a non-existent filter to bypass row-level security if needed (though we'll use a better approach)
+        await supabase.from('match_ratings').delete().neq('match_id', '00000000-0000-0000-0000-000000000000');
+        await supabase.from('matches').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        await supabase.from('awards').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        await supabase.from('players').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        await supabase.from('seasons').delete().neq('id', '00000000-0000-0000-0000-000000000000');
         localStorage.clear();
         location.reload();
-    });
+    }, "delete");
 }
 
 // --- FORM HANDLING ---
@@ -672,45 +693,32 @@ function updateLivePreview() {
     document.getElementById('ps-preview-container').innerHTML = createCardHTML({name, pos, rating, jerseyNumber, photo: currentPhoto, goals:0, matches:0, id:99});
 }
 
-document.getElementById('ps-form').onsubmit = (e) => {
+document.getElementById('ps-form').onsubmit = async (e) => {
   e.preventDefault();
 
   const idInput = document.getElementById('f-id').value;
 
   const data = {
-    // Maintain the ID type if it exists, otherwise use the counter
-    id: idInput ? (isNaN(idInput) ? idInput : parseInt(idInput)) : playerIdCounter++,
     name: document.getElementById('f-name').value,
     jerseyNumber: parseInt(document.getElementById('f-number').value) || null,
     pos: document.getElementById('f-pos').value,
     rating: parseInt(document.getElementById('f-rating').value),
     photo: currentPhoto,
-    matches: 0,
-    goals: 0,
   };
 
-  if (idInput !== "") {
-      const idx = players.findIndex(p => p && String(p.id) === String(idInput));
-
-      if (idx !== -1) {
-          data.matches = players[idx].matches || 0;
-          data.goals = players[idx].goals || 0;
-          players[idx] = data;
-      } else {
-          players.push(data);
-      }
-  } else {
-      players.push(data);
+  if (idInput) {
+      data.id = idInput;
   }
 
-  savePlayerToDB(data);
+  await savePlayerToDB(data);
   renderSquad();
   toggleModal('player-studio-modal', false);
 };
 
-function init() {
+async function init() {
+    await loadSeasons();
     updateSeasonSelector();
-    renderAll();
+    await renderAll();
 }
 
 
@@ -912,7 +920,7 @@ function renderRatingsGrid(existingRatings = []) {
     }).join('');
 }
 
-function saveMatch() {
+async function saveMatch() {
     if (userRole !== "admin") return;
     
     const rows = document.querySelectorAll('.timeline-item');
@@ -974,7 +982,6 @@ function saveMatch() {
     });
 
     const data = {
-        id: window.editingMatchId || Date.now(),
         date: document.getElementById('ms-date').value,
         title: document.getElementById('ms-title').value || "New Match",
         teamA: [...studioMatch.teamA],
@@ -987,16 +994,10 @@ function saveMatch() {
     };
 
     if (window.editingMatchId) {
-        const idx = matches.findIndex(m => m && m.id == window.editingMatchId);
-        if (idx !== -1) matches[idx] = data;
-    } else {
-        matches.push(data);
+        data.id = window.editingMatchId;
     }
 
-    saveMatchToDB(data);
-    recalculateStats();
-    saveSeasons();
-    renderAll();
+    await saveMatchToDB(data);
     toggleModal('match-studio-modal', false);
 }
 
@@ -1187,52 +1188,47 @@ function cancelDeleteSeason(id) {
     document.getElementById(`confirm-delete-${id}`).style.display = 'none';
 }
 
-function deleteSeason(id) {
+async function deleteSeason(id) {
     if (userRole !== "admin") return;
-    seasons = seasons.filter(s => s && s.id != id);
-
-    if (currentSeasonId == id && seasons.length > 0) {
-        currentSeasonId = seasons[0].id;
+    const { error } = await supabase.from('seasons').delete().eq('id', id);
+    if (error) {
+        console.error("Error deleting season:", error);
+        return;
     }
-
-    saveSeasons();
+    
+    await loadSeasons();
     updateSeasonSelector();
     renderSeasonManager();
-    renderAll();
+    await renderAll();
 }
 
-function addSeasonFromManager() {
+async function addSeasonFromManager() {
     if (userRole !== "admin") return;
     const input = document.getElementById('sm-new-name');
     const name = input.value.trim();
     
     if (!name) return;
 
-    const newSeason = {
-        id: "s_" + Date.now(),
-        name: name,
-        players: [],
-        matches: [],
-        awards: []
-    };
+    const { data, error } = await supabase.from('seasons').insert([{ name }]).select();
+    if (error) {
+        console.error("Error adding season:", error);
+        return;
+    }
 
-    seasons.push(newSeason);
-    currentSeasonId = newSeason.id;
-    
-    saveSeasons();
+    currentSeasonId = data[0].id;
     input.value = "";
     
+    await loadSeasons();
     updateSeasonSelector();
     renderSeasonManager();
-    renderAll();
+    await renderAll();
 }
 
-function switchSeason(id) {
+async function switchSeason(id) {
     currentSeasonId = id;
-    saveSeasons();
     updateSeasonSelector();
     renderSeasonManager();
-    renderAll();
+    await renderAll();
 }
 
 // Call on load
@@ -1263,14 +1259,11 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // Delete match function
-function deleteMatch(id) {
+async function deleteMatch(id) {
     if (userRole !== "admin") return;
-    openConfirmModal("Delete this match?", () => {
-        deleteMatchFromDB(id);
-        recalculateStats();
-        saveSeasons();
-        renderAll();
-    });
+    openConfirmModal("Delete this match?", async () => {
+        await deleteMatchFromDB(id);
+    }, "delete");
 }
 // ===== EXPORT / IMPORT (SAFE ADDITION) =====
 
@@ -1338,13 +1331,15 @@ function importData(event) {
 window.exportData = exportData;
 window.importData = importData;
 window.handleFileSelect = handleFileSelect;
-// ===== USER MANAGEMENT (LOCAL STORAGE) =====
+// ===== USER MANAGEMENT (SUPABASE) =====
 
-function getUsers() {
-    return JSON.parse(localStorage.getItem("xbfa_users")) || [];
+async function getUsers() {
+    const { data, error } = await supabase.from('profiles').select('*');
+    if (error) console.error("Error fetching users:", error);
+    return data || [];
 }
 
-function createUser() {
+async function createUser() {
     if (userRole !== "admin") return;
     const username = document.getElementById('uc-username').value.trim();
     const password = document.getElementById('uc-password').value.trim();
@@ -1355,57 +1350,44 @@ function createUser() {
         return;
     }
 
-    const users = getUsers();
-    users.push({
-        id: Date.now().toString(),
-        username,
-        password,
-        role
-    });
-
-    localStorage.setItem("xbfa_users", JSON.stringify(users));
-
-    showAlertModal("User created successfully!");
-
-    document.getElementById('uc-username').value = "";
-    document.getElementById('uc-password').value = "";
-    document.getElementById('uc-role').value = "visitor";
-
-    renderIdManager();
+    const { error } = await supabase.from('profiles').insert([{ username, password, role }]);
+    if (error) {
+        showAlertModal("Error creating user: " + error.message);
+    } else {
+        showAlertModal("User created successfully!");
+        document.getElementById('uc-username').value = "";
+        document.getElementById('uc-password').value = "";
+        document.getElementById('uc-role').value = "visitor";
+        await renderIdManager();
+    }
 }
 
-function renderIdManager() {
+async function renderIdManager() {
     const list = document.getElementById('id-list');
     if (!list) return;
 
-    const users = getUsers();
+    const users = await getUsers();
 
     list.innerHTML = users.map((u, i) => `
     <div class="glass-card" style="padding:12px; display:flex; flex-direction:column; gap:8px">
-
         <div onclick="toggleUserCard(${i})" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer">
             <div>
-                <strong>${u.username}</strong>
-                <div style="font-size:0.7rem; color:var(--text-dim)">${u.role}</div>
+                <span class="accent-text" style="font-weight:bold">${u.username}</span>
+                <span style="font-size:0.7rem; color:var(--text-dim); margin-left:8px">${(u.role || 'visitor').toUpperCase()}</span>
             </div>
-            <i class="fas fa-chevron-down" id="arrow-${i}" style="transition:0.2s"></i>
+            <i class="fas fa-chevron-down" id="arrow-${i}" style="font-size:0.8rem; opacity:0.5; transition:0.3s"></i>
         </div>
 
-        <div id="user-body-${i}" style="display:none; flex-direction:column; gap:8px">
-
-            <input type="text" value="${u.password}" id="pwd-${i}">
-
-            <div style="display:flex; gap:8px">
-                <button class="btn-neon" style="flex:1" onclick="updateUserPassword('${u.id}', ${i})">
-                    Update
-                </button>
-
-                <button class="btn-danger" style="flex:1" onclick="deleteUser('${u.id}')">
-                    Delete
-                </button>
+        <div id="user-body-${i}" style="display:none; flex-direction:column; gap:12px; margin-top:8px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.05)">
+            <div style="display:flex; flex-direction:column; gap:5px">
+                <label style="font-size:0.7rem; opacity:0.6">PASSWORD</label>
+                <input type="text" id="pwd-${i}" class="input-modern" value="${u.password}" style="margin:0; padding:8px;">
+            </div>
+            <div style="display:flex; gap:10px">
+                <button class="btn-cyan" style="flex:2" onclick="updateUserPassword('${u.id}', ${i})">Update</button>
+                <button class="btn-danger" style="flex:1" onclick="deleteUser('${u.id}')">Delete</button>
             </div>
         </div>
-
     </div>
     `).join('');
 }
@@ -1422,7 +1404,7 @@ function toggleUserCard(index) {
     arrow.style.transform = isOpen ? "rotate(0deg)" : "rotate(180deg)";
 }
 
-function updateUserPassword(id, index) {
+async function updateUserPassword(id, index) {
     if (userRole !== "admin") return;
     const newPass = document.getElementById(`pwd-${index}`).value.trim();
 
@@ -1431,31 +1413,28 @@ function updateUserPassword(id, index) {
         return;
     }
 
-    const users = getUsers();
-    const idx = users.findIndex(u => u && String(u.id) === String(id));
-    if (idx !== -1) {
-        users[idx].password = newPass;
-        localStorage.setItem("xbfa_users", JSON.stringify(users));
+    const { error } = await supabase.from('profiles').update({ password: newPass }).eq('id', id);
+    if (!error) {
         showAlertModal("Password updated!");
+    } else {
+        showAlertModal("Error updating password: " + error.message);
     }
 }
 
-function deleteUser(id) {
+async function deleteUser(id) {
     if (userRole !== "admin") return;
-    openConfirmModal("Delete this user?", () => {
-        let users = getUsers();
-        users = users.filter(u => u && String(u.id) !== String(id));
-        localStorage.setItem("xbfa_users", JSON.stringify(users));
-        renderIdManager();
-    });
+    openConfirmModal("Delete this user?", async () => {
+        await supabase.from('profiles').delete().eq('id', id);
+        await renderIdManager();
+    }, "delete");
 }
 
-function deleteAllUsers() {
+async function deleteAllUsers() {
     if (userRole !== "admin") return;
-    openConfirmModal("Delete ALL users?", () => {
-        localStorage.setItem("xbfa_users", JSON.stringify([]));
-        renderIdManager();
-    });
+    openConfirmModal("Delete ALL users?", async () => {
+        await supabase.from('profiles').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        await renderIdManager();
+    }, "delete");
 }
 
 function toggleStudioSection(headerEl) {
