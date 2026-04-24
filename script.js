@@ -279,12 +279,12 @@ async function renderAll() {
     await renderAwards();
 
     // UI protection: keep settings visible but hide admin-only controls
-    const isAdmin = window.userRole === "admin";
+    const isAdmin = userRole === "admin";
 
     // Update User Info in Settings
     const userDisplay = document.querySelector('.settings-group.visitor-only .settings-desc');
     if (userDisplay && session) {
-        userDisplay.innerHTML = `Signed in as <span class="accent-text">${session.user.email}</span><br>Role: ${window.userRole.toUpperCase()}`;
+        userDisplay.innerHTML = `Signed in as <span class="accent-text">${session.user.email}</span><br>Role: ${(userRole || "").toUpperCase()}`;
     }
     
     const adminUserDisplay = document.querySelector('.settings-group.admin-only .settings-desc');
@@ -1373,7 +1373,7 @@ function updateSeasonSelector() {
     
     const html = seasons.map(s => 
         s ? `<option value="${s.id}" ${s.id === currentSeasonId ? 'selected' : ''}>
-            ${s.name.toUpperCase()}
+            ${(s.name || "").toUpperCase()}
         </option>` : ""
     ).join('');
 
