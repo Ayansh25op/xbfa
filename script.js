@@ -27,7 +27,6 @@ async function checkAuth() {
         userRole = roleData ? roleData.role : "visitor";
     }
 
-    window.userRole = userRole;
     await init();
 }
 
@@ -38,9 +37,6 @@ async function logout() {
     await supabase.auth.signOut();
     window.location.href = "login.html";
 }
-
-// Expose globally for HTML onclick handlers
-window.logout = logout;
 
 // Map the old global 'user' to session.user.email for backward compatibility
 let user = null;
@@ -58,6 +54,7 @@ let currentSeasonName = "";
 // --- STATE MANAGEMENT ---
 let studioMatch = { team_a: [], team_b: [], events: [] };
 let currentPhoto = "";
+let editingMatchId = null;
 
 // ===== SUPABASE DATA LOGIC =====
 
@@ -350,7 +347,7 @@ if(star) {
     const latest = matches[matches.length - 1];
     if(latest) {
         document.getElementById('latest-match-hero').innerHTML = `
-            <div class="match-card" style="width:100%" onclick="viewMatchDetail('${latest.id}')">
+            <div class="match-card action-view-match" style="width:100%" data-id="${latest.id}">
                 <div class="match-score">${latest.score_a} - ${latest.score_b}</div>
                 <div class="match-meta">${latest.title} • ${latest.date}</div>
             </div>`;
@@ -362,16 +359,16 @@ function renderMatches() {
     const list = document.getElementById('match-history-list');
     list.innerHTML = matches.slice().reverse().map(m => `
         <div class="match-card" style="position:relative">
-            <div onclick="viewMatchDetail('${m.id}')" style="cursor:pointer">
+            <div class="action-view-match" data-id="${m.id}" style="cursor:pointer">
                 <div class="match-score">${m.score_a} - ${m.score_b}</div>
                 <div class="match-meta">${m.title} • ${m.date}</div>
             </div>
             ${userRole === "admin" ? `
             <div style="position:absolute; top:10px; right:10px; display:flex; gap:8px">
-                <button onclick="event.stopPropagation(); deleteMatch('${m.id}')" style="background:none; border:none; color:#ff4d4d; cursor:pointer">
+                <button class="action-delete-match" data-id="${m.id}" style="background:none; border:none; color:#ff4d4d; cursor:pointer">
                     <i class="fas fa-trash"></i>
                 </button>
-                <button onclick="event.stopPropagation(); editMatch('${m.id}')" style="background:none; border:none; color:var(--accent); cursor:pointer">
+                <button class="action-edit-match" data-id="${m.id}" style="background:none; border:none; color:var(--accent); cursor:pointer">
                     <i class="fas fa-edit"></i>
                 </button>
             </div>
@@ -408,7 +405,7 @@ function viewMatchDetail(id) {
     }).join('');
 
     let html = `
-        <span class="close-btn" onclick="toggleModal('match-detail-modal', false)">&times;</span>
+        <span class="close-btn" id="closeMatchDetailBtn">&times;</span>
         
         <div class="match-header-modern">
             <div class="match-meta">${m.title} • ${m.date}</div>
@@ -510,10 +507,10 @@ async function renderAwards() {
         <div class="award-card-modern">
             ${isAdmin ? `
             <div class="award-actions-overlay">
-                <button class="btn-award-action" onclick="openAwardStudio('${a.id}')">
+                <button class="btn-award-action action-edit-award" data-id="${a.id}">
                     <i class="fas fa-edit"></i>
                 </button>
-                <button class="btn-award-action delete" onclick="deleteAward('${a.id}')">
+                <button class="btn-award-action delete action-delete-award" data-id="${a.id}">
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
@@ -606,10 +603,10 @@ function createCardHTML(p) {
         <div class="player-card">
             ${userRole === "admin" ? `
             <div style="position:absolute; top:10px; right:10px; display:flex; gap:8px; z-index:10">
-                <button onclick="event.stopPropagation(); deletePlayer('${p.id}')" style="background:none; border:none; color:#ff4d4d; cursor:pointer">
+                <button class="action-delete-player" data-id="${p.id}" style="background:none; border:none; color:#ff4d4d; cursor:pointer">
                     <i class="fas fa-trash"></i>
                 </button>
-                <button onclick="openPlayerStudio('${p.id}')" style="background:none; border:none; color:var(--accent); cursor:pointer">
+                <button class="action-edit-player" data-id="${p.id}" style="background:none; border:none; color:var(--accent); cursor:pointer">
                     <i class="fas fa-edit"></i>
                 </button>
             </div>
@@ -629,8 +626,8 @@ function createCardHTML(p) {
             <!-- Large Background Jersey Number -->
             <div class="card-number ${posClass}">${p.jersey_number || ''}</div>
 
-            <img src="${p.photo || 'https://via.placeholder.com/150?text=FC26'}" class="player-img" onclick="viewProfile('${p.id}')">
-            <div class="name" onclick="viewProfile('${p.id}')">${p.name}</div>
+            <img src="${p.photo || 'https://via.placeholder.com/150?text=FC26'}" class="player-img action-view-profile" data-id="${p.id}">
+            <div class="name action-view-profile" data-id="${p.id}">${p.name}</div>
             <div style="font-size:0.75rem; color:var(--text-dim); margin-top:8px; position:relative; z-index:1">G: ${p.goals||0} | M: ${p.matches||0}</div>
         </div>`;
 }
@@ -805,14 +802,229 @@ async function init() {
     await loadSeasons();
     updateSeasonSelector();
     await renderAll();
+    setupEventListeners();
 }
 
+function setupEventListeners() {
+    // Only setup once
+    if (window.listenersInitialized) return;
+    window.listenersInitialized = true;
 
-// --- MATCH STUDIO HANDLING ---
+    // Static Click Handlers
+    const staticActions = {
+        'openAddPlayerBtn': () => openPlayerStudio(),
+        'openRecordMatchBtn': () => openMatchStudio(),
+        'openAddAwardBtn': () => openAwardStudio(),
+        'resetSystemBtn': () => resetSystem(),
+        'logoutBtn': () => logout(),
+        'logoutVisitorBtn': () => logout(),
+        'openSeasonManagerBtn': () => openSeasonManager(),
+        'exportDataBtn': () => exportData(),
+        'openUserMgmtBtn': () => { renderIdManager(); toggleModal('id-manager-modal', true); },
+        'closePlayerStudioBtn': () => toggleModal('player-studio-modal', false),
+        'savePlayerBtn': () => handleSavePlayer(),
+        'closeMatchStudioBtn': () => toggleModal('match-studio-modal', false),
+        'addGoalRowBtn': () => addGoalRow(),
+        'addMatchAwardBtn': () => addAwardRowInStudio(),
+        'ms-finalize-btn': () => saveMatch(),
+        'closePlayerViewBtn': () => toggleModal('player-modal', false),
+        'closeAwardStudioBtn': () => toggleModal('award-studio-modal', false),
+        'saveAwardBtn': () => handleSaveAward(),
+        'closeUserMgmtBtn': () => toggleModal('id-manager-modal', false),
+        'createUserBtn': () => createUser(),
+        'deleteAllUsersBtn': () => deleteAllUsers(),
+        'closeSeasonManagerBtn': () => toggleModal('season-manager-modal', false),
+        'createSeasonBtn': () => addSeasonFromManager(),
+        'cancelConfirmBtn': () => closeConfirmModal(),
+        'togglePlayerPoolBtn': () => togglePlayerPool(),
+        'closeMatchDetailBtn': () => toggleModal('match-detail-modal', false),
+        'confirm-ok-btn': () => {
+            // This button's behavior is set dynamically in openConfirmModal
+        }
+    };
+
+    document.addEventListener('click', (e) => {
+        // 1. Sidebar & Bottom Navigation
+        const nav = e.target.closest('[id^="nav-"], [id^="bnav-"]');
+        if (nav && !e.target.closest('button')) {
+            const pageId = nav.id.replace('nav-', '').replace('bnav-', '');
+            if (['dashboard','players','matches','leaderboards','awards','admin'].includes(pageId)) {
+                showPage(pageId);
+                return;
+            }
+        }
+
+        // 2. Static Buttons by ID
+        for (const id in staticActions) {
+            if (e.target.closest(`#${id}`)) {
+                staticActions[id]();
+                return;
+            }
+        }
+
+        // 3. Studio Section Collapsibles
+        const studioHeader = e.target.closest('.studio-section-title');
+        if (studioHeader) {
+            toggleStudioSection(studioHeader);
+            return;
+        }
+
+        // 4. Dynamic Action Handlers (Delegation)
+        const target = e.target;
+        
+        // Match Details
+        const viewMatch = target.closest('.action-view-match');
+        if (viewMatch) {
+            viewMatchDetail(viewMatch.dataset.id);
+            return;
+        }
+
+        // Match Actions
+        const delMatch = target.closest('.action-delete-match');
+        if (delMatch) {
+            deleteMatch(delMatch.dataset.id);
+            return;
+        }
+        const editMatchBtn = target.closest('.action-edit-match');
+        if (editMatchBtn) {
+            editMatch(editMatchBtn.dataset.id);
+            return;
+        }
+
+        // Award Actions
+        const delAward = target.closest('.action-delete-award');
+        if (delAward) {
+            deleteAward(delAward.dataset.id);
+            return;
+        }
+        const editAward = target.closest('.action-edit-award');
+        if (editAward) {
+            openAwardStudio(editAward.dataset.id);
+            return;
+        }
+
+        // Player Actions
+        const delPlayer = target.closest('.action-delete-player');
+        if (delPlayer) {
+            deletePlayer(delPlayer.dataset.id);
+            return;
+        }
+        const editPlayer = target.closest('.action-edit-player');
+        if (editPlayer) {
+            openPlayerStudio(editPlayer.dataset.id);
+            return;
+        }
+        const viewProf = target.closest('.action-view-profile');
+        if (viewProf) {
+            viewProfile(viewProf.dataset.id);
+            return;
+        }
+
+        // Studio Match Actions
+        const cyclePl = target.closest('.action-cycle-player');
+        if (cyclePl && !cyclePl.disabled) {
+            cyclePlayer(cyclePl.dataset.id);
+            return;
+        }
+        const remTimeline = target.closest('.action-remove-timeline-row');
+        if (remTimeline) {
+            remTimeline.closest('.timeline-item').remove();
+            return;
+        }
+        const remAwardRow = target.closest('.action-remove-award-row');
+        if (remAwardRow) {
+            remAwardRow.parentElement.remove();
+            return;
+        }
+
+        // Season Manager Actions
+        const enRename = target.closest('.action-enable-season-rename');
+        if (enRename) {
+            enableSeasonRename(enRename.dataset.id);
+            return;
+        }
+        const switchSeas = target.closest('.action-switch-season');
+        if (switchSeas) {
+            switchSeason(switchSeas.dataset.id);
+            return;
+        }
+        const reqDelSeas = target.closest('.action-request-delete-season');
+        if (reqDelSeas) {
+            requestDeleteSeason(reqDelSeas.dataset.id);
+            return;
+        }
+        const canDelSeas = target.closest('.action-cancel-delete-season');
+        if (canDelSeas) {
+            cancelDeleteSeason(canDelSeas.dataset.id);
+            return;
+        }
+        const confDelSeas = target.closest('.action-confirm-delete-season');
+        if (confDelSeas) {
+            deleteSeason(confDelSeas.dataset.id);
+            return;
+        }
+
+        // User Management Actions
+        const togUser = target.closest('.action-toggle-user-card');
+        if (togUser) {
+            toggleUserCard(togUser.dataset.index);
+            return;
+        }
+        const updUserPwd = target.closest('.action-update-user-password');
+        if (updUserPwd) {
+            updateUserPassword(updUserPwd.dataset.id, updUserPwd.dataset.index);
+            return;
+        }
+        const delUserBtn = target.closest('.action-delete-user');
+        if (delUserBtn) {
+            deleteUser(delUserBtn.dataset.id);
+            return;
+        }
+    });
+
+    // Handle Input/Change Listeners
+    document.addEventListener('change', (e) => {
+        const id = e.target.id;
+        if (id === 'seasonSelector' || id === 'seasonSelectorMobile') {
+            switchSeason(e.target.value);
+        }
+        if (id === 'import-file-input') {
+            handleFileSelect(e);
+        }
+        if (id === 'f-pos') {
+            updateStatFields();
+        }
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.target.classList.contains('action-save-season-rename-input') && e.key === 'Enter') {
+            saveSeasonRename(e.target.dataset.id);
+        }
+    });
+
+    document.addEventListener('focusout', (e) => {
+        if (e.target.classList.contains('action-save-season-rename-input')) {
+            saveSeasonRename(e.target.dataset.id);
+        }
+    });
+
+    // Close modals on outside click
+    window.onclick = function(event) {
+        if (event.target.classList.contains('modal')) {
+            toggleModal(event.target.id, false);
+        }
+    };
+}
+
+// Ensure init is called after DOM load
+window.addEventListener('DOMContentLoaded', init);
+window.addEventListener('DOMContentLoaded', updateSeasonSelector);
+
+// Remove the old global exposures at the end of the file
 function openMatchStudio() {
     const isAdmin = userRole === "admin";
     studioMatch = { team_a: [], team_b: [], events: [] };
-    window.editingMatchId = null;
+    editingMatchId = null;
     
     document.getElementById('ms-date').value = new Date().toISOString().split('T')[0];
     document.getElementById('ms-date').disabled = !isAdmin;
@@ -827,13 +1039,13 @@ function openMatchStudio() {
     const finalizeBtn = document.getElementById('ms-finalize-btn');
     if (finalizeBtn) finalizeBtn.classList.toggle('hidden', !isAdmin);
     
-    const addGoalBtn = document.querySelector('[onclick="addGoalRow()"]');
+    const addGoalBtn = document.getElementById('addGoalRowBtn');
     if (addGoalBtn) addGoalBtn.classList.toggle('hidden', !isAdmin);
     
-    const addAwardBtn = document.querySelector('[onclick="addAwardRowInStudio()"]');
+    const addAwardBtn = document.getElementById('addMatchAwardBtn');
     if (addAwardBtn) addAwardBtn.classList.toggle('hidden', !isAdmin);
 
-    const manageLineupsBtn = document.querySelector('[onclick="togglePlayerPool()"]');
+    const manageLineupsBtn = document.getElementById('togglePlayerPoolBtn');
     if (manageLineupsBtn) manageLineupsBtn.classList.toggle('hidden', !isAdmin);
 
     // Add default rows for MVP, LVP, GK
@@ -853,7 +1065,7 @@ function renderSelectionGrid() {
     pool.innerHTML = players.map(p => {
         if (!p) return "";
         let state = studioMatch.team_a.some(pid => String(pid) === String(p.id)) ? 'active-a' : (studioMatch.team_b.some(pid => String(pid) === String(p.id)) ? 'active-b' : '');
-        return `<button class="player-chip-mini ${state}" ${!isAdmin ? 'disabled' : ''} onclick="cyclePlayer('${p.id}')">${p.name}</button>`;
+        return `<button class="player-chip-mini ${state} action-cycle-player" data-id="${p.id}" ${!isAdmin ? 'disabled' : ''}>${p.name}</button>`;
     }).join('');
 
     const getPRef = (pid) => players.find(p => p && String(p.id) === String(pid));
@@ -929,7 +1141,7 @@ function addGoalRow(initialData = null) {
             </label>
         </div>
         ${isAdmin ? `
-        <button class="goal-delete" onclick="this.closest('.timeline-item').remove()" style="background:none; border:none; color:#ff4d4d; cursor:pointer; font-size:1.2rem;">
+        <button class="goal-delete action-remove-timeline-row" style="background:none; border:none; color:#ff4d4d; cursor:pointer; font-size:1.2rem;">
             <i class="fas fa-times-circle"></i>
         </button>
         ` : ''}
@@ -959,7 +1171,7 @@ function addAwardRowInStudio(label = "", playerVal = "") {
             </select>
         </div>
         ${isAdmin ? `
-        <button onclick="this.parentElement.remove()" style="background:none; border:none; color:#ff4d4d; cursor:pointer;">
+        <button class="action-remove-award-row" style="background:none; border:none; color:#ff4d4d; cursor:pointer;">
             <i class="fas fa-minus-circle"></i>
         </button>
         ` : ''}
@@ -1084,8 +1296,8 @@ async function saveMatch() {
             ratings
         };
 
-        if (window.editingMatchId) {
-            data.id = window.editingMatchId;
+        if (editingMatchId) {
+            data.id = editingMatchId;
         }
 
         await saveMatchToDB(data);
@@ -1102,7 +1314,7 @@ function editMatch(id) {
     const match = matches.find(m => m && m.id == id);
     if (!match) return;
 
-    window.editingMatchId = id;
+    editingMatchId = id;
     studioMatch = { 
         team_a: [...match.team_a], 
         team_b: [...match.team_b], 
@@ -1126,13 +1338,13 @@ function editMatch(id) {
     const finalizeBtn = document.getElementById('ms-finalize-btn');
     if (finalizeBtn) finalizeBtn.classList.toggle('hidden', !isAdmin);
     
-    const addGoalBtn = document.querySelector('[onclick="addGoalRow()"]');
+    const addGoalBtn = document.getElementById('addGoalRowBtn');
     if (addGoalBtn) addGoalBtn.classList.toggle('hidden', !isAdmin);
     
-    const addAwardBtn = document.querySelector('[onclick="addAwardRowInStudio()"]');
+    const addAwardBtn = document.getElementById('addMatchAwardBtn');
     if (addAwardBtn) addAwardBtn.classList.toggle('hidden', !isAdmin);
 
-    const manageLineupsBtn = document.querySelector('[onclick="togglePlayerPool()"]');
+    const manageLineupsBtn = document.getElementById('togglePlayerPoolBtn');
     if (manageLineupsBtn) manageLineupsBtn.classList.toggle('hidden', !isAdmin);
 
     renderSelectionGrid();
@@ -1196,11 +1408,11 @@ function renderSeasonManager() {
             ${isActive ? '<span class="active-badge">Active</span>' : ''}
             
             <div class="season-card-header">
-                <div id="name-display-${s.id}" class="season-name-display" onclick="enableSeasonRename('${s.id}')">
+                <div id="name-display-${s.id}" class="season-name-display action-enable-season-rename" data-id="${s.id}">
                     ${s.name} <i class="fas fa-edit"></i>
                 </div>
                 <div id="name-edit-${s.id}" style="display:none">
-                    <input type="text" id="name-input-${s.id}" class="season-name-input" value="${s.name}" onblur="saveSeasonRename('${s.id}')" onkeydown="if(event.key==='Enter') saveSeasonRename('${s.id}')">
+                    <input type="text" id="name-input-${s.id}" class="season-name-input action-save-season-rename-input" data-id="${s.id}" value="${s.name}">
                 </div>
             </div>
 
@@ -1221,7 +1433,7 @@ function renderSeasonManager() {
 
             <div class="season-actions">
                 ${!isActive ? `
-                    <button class="btn-card-action switch" onclick="switchSeason('${s.id}')">
+                    <button class="btn-card-action switch action-switch-season" data-id="${s.id}">
                         <i class="fas fa-exchange-alt"></i> Switch
                     </button>
                 ` : `
@@ -1231,7 +1443,7 @@ function renderSeasonManager() {
                 `}
                 
                 ${seasons.length > 1 ? `
-                    <button class="btn-card-action delete" onclick="requestDeleteSeason('${s.id}')">
+                    <button class="btn-card-action delete action-request-delete-season" data-id="${s.id}">
                         <i class="fas fa-trash"></i>
                     </button>
                 ` : ''}
@@ -1241,8 +1453,8 @@ function renderSeasonManager() {
             <div id="confirm-delete-${s.id}" class="confirm-delete-box" style="display:none">
                 <p>Delete this season and all its data permanently?</p>
                 <div style="display:flex; gap:10px; width:100%">
-                    <button class="btn-neon w-100" style="background:#444; color:#fff" onclick="cancelDeleteSeason('${s.id}')">Cancel</button>
-                    <button class="btn-danger w-100" onclick="deleteSeason('${s.id}')">Confirm</button>
+                    <button class="btn-neon w-100 action-cancel-delete-season" data-id="${s.id}" style="background:#444; color:#fff">Cancel</button>
+                    <button class="btn-danger w-100 action-confirm-delete-season" data-id="${s.id}">Confirm</button>
                 </div>
             </div>
         </div>
@@ -1430,9 +1642,6 @@ function importData(event) {
     });
 }
 
-window.exportData = exportData;
-window.importData = importData;
-window.handleFileSelect = handleFileSelect;
 // ===== USER MANAGEMENT (SUPABASE) =====
 
 async function getUsers() {
@@ -1488,7 +1697,7 @@ async function renderIdManager() {
 
     list.innerHTML = users.map((u, i) => `
     <div class="glass-card" style="padding:12px; display:flex; flex-direction:column; gap:8px">
-        <div onclick="toggleUserCard(${i})" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer">
+        <div class="action-toggle-user-card" data-index="${i}" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer">
             <div>
                 <span class="accent-text" style="font-weight:bold">${u.username}</span>
                 <span style="font-size:0.7rem; color:var(--text-dim); margin-left:8px">${(u.role || 'visitor').toUpperCase()}</span>
@@ -1502,8 +1711,8 @@ async function renderIdManager() {
                 <input type="text" id="pwd-${i}" class="input-modern" value="${u.password}" style="margin:0; padding:8px;">
             </div>
             <div style="display:flex; gap:10px">
-                <button class="btn-cyan" style="flex:2" onclick="updateUserPassword('${u.id}', ${i})">Update</button>
-                <button class="btn-danger" style="flex:1" onclick="deleteUser('${u.id}')">Delete</button>
+                <button class="btn-cyan action-update-user-password" data-id="${u.id}" data-index="${i}" style="flex:2">Update</button>
+                <button class="btn-danger action-delete-user" data-id="${u.id}" style="flex:1">Delete</button>
             </div>
         </div>
     </div>
@@ -1565,49 +1774,4 @@ function togglePlayerPool() {
     el.classList.toggle('hidden');
 }
 
-// expose globally
-window.closeConfirmModal = closeConfirmModal;
-window.openConfirmModal = openConfirmModal;
-window.showAlertModal = showAlertModal;
-window.createUser = createUser;
-window.renderIdManager = renderIdManager;
-window.updateUserPassword = updateUserPassword;
-window.deleteUser = deleteUser;
-window.deleteAllUsers = deleteAllUsers;
-window.toggleUserCard = toggleUserCard;
-window.deleteMatch = deleteMatch;
-window.editMatch = editMatch;
-window.deletePlayer = deletePlayer;
-window.deleteAward = deleteAward;
-window.openAwardStudio = openAwardStudio;
-window.openPlayerStudio = openPlayerStudio;
-window.viewProfile = viewProfile;
-window.viewMatchDetail = viewMatchDetail;
-window.addSeasonFromManager = addSeasonFromManager;
-window.switchSeason = switchSeason;
-window.deleteSeason = deleteSeason;
-window.resetSystem = resetSystem;
-window.toggleModal = toggleModal;
-window.showPage = showPage;
-window.cyclePlayer = cyclePlayer;
-window.addGoalRow = addGoalRow;
-window.addAwardRowInStudio = addAwardRowInStudio;
-window.saveMatch = saveMatch;
-window.handleSavePlayer = handleSavePlayer;
-window.handleSaveAward = handleSaveAward;
-window.togglePlayerPool = togglePlayerPool;
-window.toggleStudioSection = toggleStudioSection;
-// Expose globally
-window.logout = logout;
-window.openMatchStudio = openMatchStudio;
-window.openSeasonManager = openSeasonManager;
-window.exportData = exportData;
-window.closeConfirmModal = closeConfirmModal;
-window.saveSeasonRename = saveSeasonRename;
-window.requestDeleteSeason = requestDeleteSeason;
-window.cancelDeleteSeason = cancelDeleteSeason;
-window.enableSeasonRename = enableSeasonRename;
-window.updateStatFields = updateStatFields;
-
-// Ensure role is globally accessible
-window.userRole = userRole;
+// Initialization listeners are handled in checkAuth and setupEventListeners

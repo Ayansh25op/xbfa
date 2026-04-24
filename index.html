@@ -15,7 +15,7 @@
                 <span class="logo-fc">XB</span><span class="logo-class">FA</span>
             </div>
             <div class="season-selector-wrapper">
-                <select id="seasonSelectorMobile" onchange="switchSeason(this.value)" class="season-select">
+                <select id="seasonSelectorMobile" class="season-select">
                     <!-- Options injected by JS -->
                 </select>
             </div>
@@ -30,19 +30,19 @@
         
         <!-- Season Selector Dropdown -->
         <div class="season-selector-wrapper">
-            <select id="seasonSelector" onchange="switchSeason(this.value)" class="season-select">
+            <select id="seasonSelector" class="season-select">
                 <!-- Options injected by JS -->
             </select>
         </div>
     </div>
 
     <ul class="nav-links">
-        <li id="nav-dashboard" class="active" onclick="showPage('dashboard')"><i class="fas fa-th-large"></i> <span>Dashboard</span></li>
-        <li id="nav-players" onclick="showPage('players')"><i class="fas fa-users"></i> <span>Squad</span></li>
-        <li id="nav-matches" onclick="showPage('matches')"><i class="fas fa-gamepad"></i> <span>Matches</span></li>
-        <li id="nav-leaderboards" onclick="showPage('leaderboards')"><i class="fas fa-trophy"></i> <span>Leaderboards</span></li>
-        <li id="nav-awards" onclick="showPage('awards')"><i class="fas fa-award"></i> <span>Awards</span></li>
-        <li id="nav-admin" onclick="showPage('admin')"><i class="fas fa-user-shield"></i> <span>Settings</span></li>
+        <li id="nav-dashboard" class="active"><i class="fas fa-th-large"></i> <span>Dashboard</span></li>
+        <li id="nav-players"><i class="fas fa-users"></i> <span>Squad</span></li>
+        <li id="nav-matches"><i class="fas fa-gamepad"></i> <span>Matches</span></li>
+        <li id="nav-leaderboards"><i class="fas fa-trophy"></i> <span>Leaderboards</span></li>
+        <li id="nav-awards"><i class="fas fa-award"></i> <span>Awards</span></li>
+        <li id="nav-admin"><i class="fas fa-user-shield"></i> <span>Settings</span></li>
     </ul>
 </nav>
 
@@ -74,7 +74,7 @@
             <section id="players" class="page">
                 <div class="section-header-flex header-actions">
                     <h1>SQUAD MEMBERS</h1>
-                    <button class="btn-neon" onclick="openPlayerStudio()"><i class="fas fa-plus"></i> Add Player</button>
+                    <button class="btn-neon" id="openAddPlayerBtn"><i class="fas fa-plus"></i> Add Player</button>
                 </div>
                 <div class="squad-container" id="players-list"></div>
             </section>
@@ -83,7 +83,7 @@
             <section id="matches" class="page">
                 <div class="section-header-flex header-actions">
                     <h1>MATCH HISTORY</h1>
-                    <button class="btn-neon" onclick="openMatchStudio()"><i class="fas fa-plus-circle"></i> Record Match</button>
+                    <button class="btn-neon" id="openRecordMatchBtn"><i class="fas fa-plus-circle"></i> Record Match</button>
                 </div>
                 <div id="match-history-list" class="match-history-grid"></div>
             </section>
@@ -100,7 +100,7 @@
             <section id="awards" class="page">
                 <div class="section-header-flex header-actions">
                     <h1>SEASON AWARDS</h1>
-                    <button class="btn-neon" onclick="openAwardStudio()"><i class="fas fa-plus"></i> Add Award</button>
+                    <button class="btn-neon" id="openAddAwardBtn"><i class="fas fa-plus"></i> Add Award</button>
                 </div>
                 <div id="awards-display" class="awards-grid-redesign">
                     <!-- JS Injected: Separate Award Cards -->
@@ -122,10 +122,10 @@
                             </div>
                             <p class="settings-desc">Control core system parameters and session state.</p>
                             <div class="settings-actions">
-                                <button class="btn-danger w-100" onclick="resetSystem()">
+                                <button class="btn-danger w-100" id="resetSystemBtn">
                                     <i class="fas fa-trash-alt"></i> Reset Entire System
                                 </button>
-                                <button class="btn-neon w-100" onclick="logout()">
+                                <button class="btn-neon w-100" id="logoutBtn">
                                     <i class="fas fa-sign-out-alt"></i> Logout Session
                                 </button>
                             </div>
@@ -140,12 +140,12 @@
                             </div>
                             <p class="settings-desc">Manage seasons, backup your data, or restore from a file.</p>
                             <div class="settings-actions">
-                                <button class="btn-neon w-100" onclick="openSeasonManager()">
+                                <button class="btn-neon w-100" id="openSeasonManagerBtn">
                                     <i class="fas fa-calendar-alt"></i> Manage Seasons
                                 </button>
                                 
                                 <div style="display: flex; gap: 10px;">
-                                    <button onclick="exportData()" class="btn-outline w-100">
+                                    <button id="exportDataBtn" class="btn-outline w-100">
                                         <i class="fas fa-file-export"></i> Export Data
                                     </button>
                                 </div>
@@ -154,7 +154,7 @@
                                     <i class="fas fa-file-import"></i>
                                     <span>Click to Import Data (.json)</span>
                                     <div id="file-name-display">No file selected</div>
-                                    <input type="file" id="import-file-input" onchange="handleFileSelect(event)" style="display: none;">
+                                    <input type="file" id="import-file-input" style="display: none;">
                                 </label>
                             </div>
                         </div>
@@ -162,7 +162,7 @@
 
                     <!-- ACCOUNT SECTION -->
                     <div class="settings-group admin-only">
-                        <div class="settings-card clickable-card" onclick="renderIdManager(); toggleModal('id-manager-modal', true)">
+                        <div class="settings-card clickable-card" id="openUserMgmtBtn">
                             <div class="settings-title">
                                 <i class="fas fa-user-shield"></i> User Management
                             </div>
@@ -182,7 +182,7 @@
                                 <i class="fas fa-sign-out-alt"></i> Account
                             </div>
                             <p class="settings-desc">Exit your current session.</p>
-                             <button class="btn-neon w-100" onclick="logout()">
+                             <button class="btn-neon w-100" id="logoutVisitorBtn">
                                 Logout
                             </button>
                         </div>
@@ -193,27 +193,27 @@
 
         <!-- BOTTOM NAVIGATION (MOBILE) -->
         <nav class="bottom-nav">
-            <div class="bottom-nav-item active" onclick="showPage('dashboard')" id="bnav-dashboard">
+            <div class="bottom-nav-item active" id="bnav-dashboard">
                 <i class="fas fa-th-large"></i>
                 <span>Dashboard</span>
             </div>
-            <div class="bottom-nav-item" onclick="showPage('players')" id="bnav-players">
+            <div class="bottom-nav-item" id="bnav-players">
                 <i class="fas fa-users"></i>
                 <span>Squad</span>
             </div>
-            <div class="bottom-nav-item" onclick="showPage('matches')" id="bnav-matches">
+            <div class="bottom-nav-item" id="bnav-matches">
                 <i class="fas fa-gamepad"></i>
                 <span>Matches</span>
             </div>
-            <div class="bottom-nav-item" onclick="showPage('leaderboards')" id="bnav-leaderboards">
+            <div class="bottom-nav-item" id="bnav-leaderboards">
                 <i class="fas fa-trophy"></i>
                 <span>L-Boards</span>
             </div>
-            <div class="bottom-nav-item" onclick="showPage('awards')" id="bnav-awards">
+            <div class="bottom-nav-item" id="bnav-awards">
                 <i class="fas fa-award"></i>
                 <span>Awards</span>
             </div>
-            <div class="bottom-nav-item" onclick="showPage('admin')" id="bnav-admin">
+            <div class="bottom-nav-item" id="bnav-admin">
                 <i class="fas fa-user-shield"></i>
                 <span>Settings</span>
             </div>
@@ -223,7 +223,7 @@
     <!-- MODAL: PLAYER STUDIO -->
     <div id="player-studio-modal" class="modal">
         <div class="modal-content studio-large glass-card">
-            <span class="close-btn" onclick="toggleModal('player-studio-modal', false)">&times;</span>
+            <span class="close-btn" id="closePlayerStudioBtn">&times;</span>
             <div class="player-editor">
                 <div class="form-section">
                     <h2 id="ps-title">Player Studio</h2>
@@ -235,12 +235,12 @@
                                 <input type="text" id="f-name" placeholder="Full Name" required style="flex: 2; margin-bottom: 0;">
                                 <input type="number" id="f-number" placeholder="No." min="1" max="99" style="flex: 1; margin-bottom: 0;">
                             </div>
-                            <select id="f-pos" onchange="updateStatFields()"><option value="ST">ST</option><option value="CAM">CAM</option><option value="CB">CB</option><option value="GK">GK</option></select>
+                            <select id="f-pos"><option value="ST">ST</option><option value="CAM">CAM</option><option value="CB">CB</option><option value="GK">GK</option></select>
                             <label>Rating: <span id="f-rating-val" class="accent-text">85</span></label>
                             <input type="range" id="f-rating" min="10" max="99" value="85">
                         </div>
                         <div class="input-group-styled"><h4>Photo</h4><input type="file" id="f-photo" accept="image/*"></div>
-                        <button type="button" onclick="handleSavePlayer()" class="btn-neon w-100">Save Profile</button>
+                        <button type="button" id="savePlayerBtn" class="btn-neon w-100">Save Profile</button>
                     </form>
                 </div>
                 <div class="preview-section"><div id="ps-preview-container"></div></div>
@@ -250,12 +250,12 @@
 
     <div id="match-studio-modal" class="modal">
         <div class="modal-content studio-large glass-card" style="max-width: 900px; padding: 40px;">
-            <span class="close-btn" onclick="toggleModal('match-studio-modal', false)">&times;</span>
+            <span class="close-btn" id="closeMatchStudioBtn">&times;</span>
             
             <div class="studio-grid-layout">
                 <!-- HEADER SECTION -->
                 <div class="studio-section collapsible-section">
-                    <div class="studio-section-title" onclick="toggleStudioSection(this)">
+                    <div class="studio-section-title">
                         <span><i class="fas fa-info-circle"></i> Match Information</span>
                         <i class="fas fa-chevron-up toggle-icon"></i>
                     </div>
@@ -275,14 +275,14 @@
 
                 <!-- LINEUPS SECTION -->
                 <div class="studio-section collapsible-section">
-                    <div class="studio-section-title" onclick="toggleStudioSection(this)">
+                    <div class="studio-section-title">
                         <span><i class="fas fa-users"></i> Lineups & Squad Selection</span>
                         <i class="fas fa-chevron-up toggle-icon"></i>
                     </div>
                     
                     <div class="studio-section-body">
                         <div style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
-                            <button class="btn-neon" onclick="togglePlayerPool()" style="padding: 5px 12px; font-size: 0.8rem;">
+                            <button class="btn-neon" id="togglePlayerPoolBtn" style="padding: 5px 12px; font-size: 0.8rem;">
                                 <i class="fas fa-edit"></i> Manage Lineups
                             </button>
                         </div>
@@ -308,13 +308,13 @@
 
                 <!-- TIMELINE SECTION -->
                 <div class="studio-section collapsible-section">
-                    <div class="studio-section-title" onclick="toggleStudioSection(this)">
+                    <div class="studio-section-title">
                         <span><i class="fas fa-clock"></i> Match Timeline</span>
                         <i class="fas fa-chevron-up toggle-icon"></i>
                     </div>
                     <div class="studio-section-body">
                         <div id="goal-events-container-modern"></div>
-                        <button class="btn-outline w-100" style="margin-top:10px; border-style: dashed;" onclick="addGoalRow()">
+                        <button class="btn-outline w-100" id="addGoalRowBtn" style="margin-top:10px; border-style: dashed;">
                             <i class="fas fa-plus-circle"></i> Add Goal Event
                         </button>
                     </div>
@@ -322,7 +322,7 @@
 
                 <!-- AWARDS SECTION -->
                 <div class="studio-section collapsible-section">
-                    <div class="studio-section-title" onclick="toggleStudioSection(this)">
+                    <div class="studio-section-title">
                         <span><i class="fas fa-medal"></i> Match Awards</span>
                         <i class="fas fa-chevron-up toggle-icon"></i>
                     </div>
@@ -330,7 +330,7 @@
                         <div id="ms-awards-container-dynamic">
                             <!-- Dynamic Award Rows -->
                         </div>
-                        <button class="btn-outline w-100" style="margin-top:10px; border-style: dashed;" onclick="addAwardRowInStudio()">
+                        <button class="btn-outline w-100" id="addMatchAwardBtn" style="margin-top:10px; border-style: dashed;">
                             <i class="fas fa-plus"></i> Add Custom Match Award
                         </button>
                     </div>
@@ -338,7 +338,7 @@
 
                 <!-- PLAYER RATINGS SECTION -->
                 <div class="studio-section collapsible-section">
-                    <div class="studio-section-title" onclick="toggleStudioSection(this)">
+                    <div class="studio-section-title">
                         <span><i class="fas fa-star"></i> Player Ratings</span>
                         <i class="fas fa-chevron-up toggle-icon"></i>
                     </div>
@@ -350,7 +350,7 @@
                 </div>
 
                 <!-- FINAL ACTION -->
-                <button class="btn-finalize-hero w-100" id="ms-finalize-btn" onclick="saveMatch()">
+                <button class="btn-finalize-hero w-100" id="ms-finalize-btn">
                     <i class="fas fa-check-circle"></i> Finalize Match
                     <span>Save results and update all season statistics</span>
                 </button>
@@ -367,13 +367,13 @@
 
     <!-- MODAL: PROFILE VIEW -->
     <div id="player-modal" class="modal">
-        <div class="modal-content glass-card" style="max-width: 500px;"><span class="close-btn" onclick="toggleModal('player-modal', false)">&times;</span><div id="player-view-body"></div></div>
+        <div class="modal-content glass-card" style="max-width: 500px;"><span class="close-btn" id="closePlayerViewBtn">&times;</span><div id="player-view-body"></div></div>
     </div>
     
     <!-- MODAL: AWARD STUDIO -->
     <div id="award-studio-modal" class="modal">
         <div class="modal-content glass-card" style="max-width: 450px;">
-            <span class="close-btn" onclick="toggleModal('award-studio-modal', false)">&times;</span>
+            <span class="close-btn" id="closeAwardStudioBtn">&times;</span>
             <h2 id="as-title">Award Studio</h2>
             <div class="form-section">
                 <form id="as-form">
@@ -389,7 +389,7 @@
                             <!-- JS Injected Options -->
                         </select>
                     </div>
-                    <button type="button" onclick="handleSaveAward()" class="btn-neon w-100">Save Award</button>
+                    <button type="button" id="saveAwardBtn" class="btn-neon w-100">Save Award</button>
                 </form>
             </div>
         </div>
@@ -400,7 +400,7 @@
 <!-- MODAL: ID MANAGER -->
 <div id="id-manager-modal" class="modal">
     <div class="modal-content studio-large glass-card" style="max-width:650px">
-        <span class="close-btn" onclick="toggleModal('id-manager-modal', false)">&times;</span>
+        <span class="close-btn" id="closeUserMgmtBtn">&times;</span>
 
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px">
             <h2 style="margin:0">ID Manager</h2>
@@ -420,7 +420,7 @@
                 </select>
             </div>
 
-            <button class="btn-neon w-100" style="margin-top:10px" onclick="createUser()">
+            <button class="btn-neon w-100" id="createUserBtn" style="margin-top:10px">
                 + Create User
             </button>
         </div>
@@ -432,7 +432,7 @@
         </div>
 
         <div class="form-section" style="margin-top:20px">
-            <button class="btn-danger w-100" onclick="deleteAllUsers()">
+            <button class="btn-danger w-100" id="deleteAllUsersBtn">
                 Delete All Users
             </button>
         </div>
@@ -442,7 +442,7 @@
 <!-- MODAL: SEASON MANAGER -->
 <div id="season-manager-modal" class="modal">
     <div class="modal-content studio-large glass-card" style="max-width: 750px;">
-        <span class="close-btn" onclick="toggleModal('season-manager-modal', false)">&times;</span>
+        <span class="close-btn" id="closeSeasonManagerBtn">&times;</span>
         
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
             <div>
@@ -454,7 +454,7 @@
         <!-- CREATE NEW SEASON -->
         <div class="season-create-banner">
             <input type="text" id="sm-new-name" placeholder="New Season Name (e.g. 2025 Winter)">
-            <button onclick="addSeasonFromManager()" class="btn-neon">Create Season</button>
+            <button id="createSeasonBtn" class="btn-neon">Create Season</button>
         </div>
 
         <!-- SEASONS GRID/LIST -->
@@ -469,7 +469,7 @@
         <div class="modal-content glass-card" style="max-width: 400px; text-align: center; padding: 30px;">
             <h3 id="confirm-msg" style="margin-bottom: 25px; line-height: 1.5;">Are you sure?</h3>
             <div style="display: flex; gap: 15px;">
-                <button class="btn-outline w-100" style="margin:0" onclick="closeConfirmModal()">Cancel</button>
+                <button class="btn-outline w-100" id="cancelConfirmBtn" style="margin:0">Cancel</button>
                 <button id="confirm-ok-btn" class="btn-danger w-100">Confirm</button>
             </div>
         </div>
