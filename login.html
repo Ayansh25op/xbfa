@@ -154,7 +154,7 @@
         <form id="loginForm">
             <div class="form-group">
                 <label for="email">Email</label>
-                <input type="email" id="email" placeholder="Enter your email" required>
+                <input type="email" id="email" placeholder="Enter admin email" required>
             </div>
 
             <div class="form-group">
@@ -163,41 +163,27 @@
             </div>
 
             <button type="submit" id="auth-btn" class="login-btn">Sign In</button>
-            <div id="toggle-auth" style="margin-top: 15px; font-size: 0.85rem; cursor: pointer; color: var(--accent-green);">
-                Need an account? Sign Up
-            </div>
         </form>
 
         <div class="footer-links" id="loading-spinner" style="display: none;">
             <div style="width: 20px; height: 20px; border: 2px solid var(--accent-green); border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto; margin-top: 15px;"></div>
         </div>
 
-        <div class="footer-links">
-            <p>Admin Access? <a href="#">Contact Support</a></p>
+        <div class="footer-links" style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px;">
+            <p style="font-size: 0.75rem; opacity: 0.5;">Master Admin Access Required</p>
         </div>
     </div>
 
     <script type="module">
         import { supabase } from './supabase.js'
 
-        let isSignUp = false;
-
         const authBtn = document.getElementById('auth-btn');
-        const toggleBtn = document.getElementById('toggle-auth');
         const emailInput = document.getElementById('email');
         const passwordInput = document.getElementById('password');
         const errorMsg = document.getElementById('error-msg');
         const spinner = document.getElementById('loading-spinner');
         const subtitle = document.querySelector('.subtitle');
 
-        toggleBtn.addEventListener('click', () => {
-            isSignUp = !isSignUp;
-            authBtn.innerText = isSignUp ? "Sign Up" : "Sign In";
-            toggleBtn.innerText = isSignUp ? "Already have an account? Sign In" : "Need an account? Sign Up";
-            subtitle.innerText = isSignUp ? "Create Account" : "Database Access";
-            errorMsg.style.display = "none";
-        });
-        
         // AUTO REDIRECT
         const checkSession = async () => {
             const { data: { session } } = await supabase.auth.getSession();
@@ -218,47 +204,19 @@
             spinner.style.display = "block";
 
             try {
-                if (isSignUp) {
-                    const { data, error } = await supabase.auth.signUp({
-                        email,
-                        password
-                    });
-                    if (error) throw error;
-                    
-                    if (data.user) {
-                        // Create user_roles entry for permissions
-                        await supabase.from('user_roles').upsert([
-                            { user_id: data.user.id, role: 'visitor' }
-                        ]);
-
-                        // Create profiles entry for user management list
-                        await supabase.from('profiles').upsert([
-                            { 
-                                username: email, 
-                                password: '---', // Handled by Supabase Auth
-                                role: 'visitor' 
-                            }
-                        ]);
-                    }
-                    
-                    alert("Verification email sent! Please check your inbox.");
-                    isSignUp = false;
-                    authBtn.innerText = "Sign In";
-                    toggleBtn.innerText = "Need an account? Sign Up";
-                } else {
-                    const { data, error } = await supabase.auth.signInWithPassword({
-                        email,
-                        password
-                    });
-                    if (error) throw error;
-                    
-                    if (data.session) {
-                        window.location.href = "index.html";
-                    }
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password
+                });
+                
+                if (error) throw error;
+                
+                if (data.session) {
+                    window.location.href = "index.html";
                 }
             } catch (error) {
                 console.error("Auth error:", error);
-                errorMsg.innerText = error.message;
+                errorMsg.innerText = "Access Denied: Invalid Credentials";
                 errorMsg.style.display = "block";
                 passwordInput.value = "";
 

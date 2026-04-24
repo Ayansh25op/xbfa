@@ -3,6 +3,7 @@ import { supabase } from './supabase.js'
 // --- AUTH & SESSION ---
 let session = null;
 let userRole = "visitor";
+const ADMIN_EMAIL = "admin@xbfa.com";
 
 async function checkAuth() {
     const { data: { session: currentSession } } = await supabase.auth.getSession();
@@ -13,22 +14,20 @@ async function checkAuth() {
         return;
     }
 
-    // Load User Role
-    const { data: roleData, error } = await supabase.from('user_roles')
-        .select('role')
-        .eq('user_id', session.user.id)
-        .single();
-
-    if (roleData) {
-        userRole = roleData.role;
+    // Role Check
+    if (session.user.email === ADMIN_EMAIL) {
+        userRole = "admin";
     } else {
-        // Default to visitor if no role assigned
-        userRole = "visitor";
+        // Fallback to database check for other users
+        const { data: roleData } = await supabase.from('user_roles')
+            .select('role')
+            .eq('user_id', session.user.id)
+            .single();
+
+        userRole = roleData ? roleData.role : "visitor";
     }
 
-    // Set globally for other functions
     window.userRole = userRole;
-
     await init();
 }
 
@@ -42,9 +41,8 @@ async function logout() {
 
 // Expose globally for HTML onclick handlers
 window.logout = logout;
-window.userRole = userRole;
 
-// Map the old global 'user' to session.user.email for backward compatibility if nav shows it
+// Map the old global 'user' to session.user.email for backward compatibility
 let user = null;
 
 // Centralized Data Storage
@@ -1390,24 +1388,40 @@ async function getUsers() {
 
 async function createUser() {
     if (userRole !== "admin") return;
-    const username = document.getElementById('uc-username').value.trim();
+    const email = document.getElementById('uc-username').value.trim();
     const password = document.getElementById('uc-password').value.trim();
     const role = document.getElementById('uc-role').value;
 
-    if (!username || !password) {
-        showAlertModal("Enter username and password");
+    if (!email || !password) {
+        showAlertModal("Enter email and password");
         return;
     }
 
-    const { error } = await supabase.from('profiles').insert([{ username, password, role }]);
-    if (error) {
-        showAlertModal("Error creating user: " + error.message);
-    } else {
-        showAlertModal("User created successfully!");
+    showAlertModal("Creating account...");
+
+    try {
+        const response = await fetch('/api/admin/create-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                email,
+                password,
+                role,
+                adminEmail: session.user.email
+            })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) throw new Error(result.error || "Failed to create user");
+
+        showAlertModal("User account created successfully!");
         document.getElementById('uc-username').value = "";
         document.getElementById('uc-password').value = "";
         document.getElementById('uc-role').value = "visitor";
         await renderIdManager();
+    } catch (error) {
+        showAlertModal("Error creating user: " + error.message);
     }
 }
 
