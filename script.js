@@ -93,18 +93,26 @@ async function loadPlayers() {
 
 async function loadMatches() {
     if (!currentSeasonId) return;
-    const { data, error } = await supabase.from('matches').select('*, match_ratings(*)').eq('season_id', currentSeasonId);
+    const { data, error } = await supabase.from('matches').select('*, match_ratings(*), match_awards(*)').eq('season_id', currentSeasonId);
     if (error) {
         console.error("Error loading matches:", error);
         matches = [];
     } else {
-        matches = (data || []).map(m => ({
-            ...m,
-            ratings: (m.match_ratings || []).map(r => ({
-                player_id: r.player_id,
-                rating: r.rating
-            }))
-        }));
+        matches = (data || []).map(m => {
+            const awardsObj = {};
+            (m.match_awards || []).forEach(aw => {
+                awardsObj[aw.type] = aw.player_id;
+            });
+
+            return {
+                ...m,
+                ratings: (m.match_ratings || []).map(r => ({
+                    player_id: r.player_id,
+                    rating: r.rating
+                })),
+                awards: awardsObj
+            };
+        });
     }
 }
 
@@ -140,7 +148,7 @@ async function deletePlayerFromDB(id) {
 async function saveMatchToDB(match) {
     if (!match) return;
     console.log("Saving match to DB:", match);
-    const { id, ratings, ...matchData } = match;
+    const { id, ratings, awards, ...matchData } = match;
     matchData.season_id = currentSeasonId;
 
     try {
@@ -166,6 +174,20 @@ async function saveMatchToDB(match) {
                 }));
                 const { error: rError } = await supabase.from('match_ratings').insert(ratingsToInsert);
                 if (rError) throw rError;
+            }
+        }
+
+        // Handle match awards
+        if (awards) {
+            await supabase.from('match_awards').delete().eq('match_id', matchId);
+            const awardsToInsert = [];
+            if (awards.mvp) awardsToInsert.push({ match_id: matchId, type: 'mvp', player_id: awards.mvp });
+            if (awards.lvp) awardsToInsert.push({ match_id: matchId, type: 'lvp', player_id: awards.lvp });
+            if (awards.gk) awardsToInsert.push({ match_id: matchId, type: 'gk', player_id: awards.gk });
+            
+            if (awardsToInsert.length > 0) {
+                const { error: aError } = await supabase.from('match_awards').insert(awardsToInsert);
+                if (aError) throw aError;
             }
         }
 
@@ -381,7 +403,10 @@ function renderMatches() {
 function viewMatchDetail(id) {
     const m = matches.find(x => x && x.id == id);
     if (!m) return;
-    const getP = (pid) => players.find(x => x && x.id == pid)?.name || "Unknown";
+    const getP = (pid) => {
+        if (!pid) return "N/A";
+        return players.find(x => x && x.id == pid)?.name || "N/A";
+    };
     const getRating = (pid) => {
         const r = (m.ratings || []).find(x => String(x.player_id) === String(pid));
         return r ? r.rating : null;

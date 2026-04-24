@@ -12,46 +12,95 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- 3. Enable Row Level Security
+-- 3. Data Tables
+CREATE TABLE IF NOT EXISTS public.seasons (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.players (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  jersey_number INTEGER,
+  pos TEXT,
+  rating INTEGER DEFAULT 0,
+  photo TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.matches (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  season_id UUID REFERENCES public.seasons(id) ON DELETE CASCADE,
+  date DATE NOT NULL DEFAULT CURRENT_DATE,
+  title TEXT,
+  team_a UUID[] DEFAULT '{}',
+  team_b UUID[] DEFAULT '{}',
+  events JSONB DEFAULT '[]',
+  score_a INTEGER DEFAULT 0,
+  score_b INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.match_ratings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  match_id UUID REFERENCES public.matches(id) ON DELETE CASCADE,
+  player_id UUID REFERENCES public.players(id) ON DELETE CASCADE,
+  rating DECIMAL(3,1),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- End of Season Awards
+CREATE TABLE IF NOT EXISTS public.awards (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  season_id UUID REFERENCES public.seasons(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  player_id UUID REFERENCES public.players(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- 6. Match Awards Table (STRICTLY SEPARATE)
+CREATE TABLE IF NOT EXISTS public.match_awards (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  match_id UUID REFERENCES public.matches(id) ON DELETE CASCADE,
+  type TEXT NOT NULL, -- 'mvp', 'lvp', 'gk'
+  player_id UUID REFERENCES public.players(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- 4. Enable Row Level Security
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-
--- 3.1 Enable RLS for data tables
 ALTER TABLE public.players ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.matches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.seasons ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.match_ratings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.awards ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.match_awards ENABLE ROW LEVEL SECURITY;
 
--- 3.2 Add Policies for ALL authenticated users (Simplified for now)
--- In a real app, you'd restrict INSERT/UPDATE/DELETE to 'admin' role
--- but matching user intent to allow all authenticated users for now.
-
--- Players
+-- 4.1 Policies
 CREATE POLICY "Allow all for authenticated users" ON public.players FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Allow select for everyone" ON public.players FOR SELECT TO public USING (true);
 
--- Matches
 CREATE POLICY "Allow all for authenticated users" ON public.matches FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Allow select for everyone" ON public.matches FOR SELECT TO public USING (true);
 
--- Seasons
 CREATE POLICY "Allow all for authenticated users" ON public.seasons FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Allow select for everyone" ON public.seasons FOR SELECT TO public USING (true);
 
--- Match Ratings
 CREATE POLICY "Allow all for authenticated users" ON public.match_ratings FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Allow select for everyone" ON public.match_ratings FOR SELECT TO public USING (true);
 
--- Awards
 CREATE POLICY "Allow all for authenticated users" ON public.awards FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Allow select for everyone" ON public.awards FOR SELECT TO public USING (true);
 
--- Profiles & User Roles
+CREATE POLICY "Allow all for authenticated users" ON public.match_awards FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow select for everyone" ON public.match_awards FOR SELECT TO public USING (true);
+
 CREATE POLICY "Allow users to read their own role" ON public.user_roles FOR SELECT TO authenticated USING (auth.uid() = user_id);
 CREATE POLICY "Allow users to read profiles" ON public.profiles FOR SELECT TO authenticated USING (true);
 
--- 4. Create a function to handle new user signup
+-- 5. Trigger for new users
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -70,7 +119,6 @@ BEGIN
 END;
 $$;
 
--- 5. Create a trigger to run after a new user is created in auth.users
 CREATE OR REPLACE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
