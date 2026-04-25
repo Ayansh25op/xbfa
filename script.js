@@ -96,28 +96,33 @@ async function loadPlayers() {
 }
 
 async function loadMatches() {
-    if (!currentSeasonId) return;
-    const { data, error } = await supabase.from('matches').select('*, match_ratings(*), match_awards(*)').eq('season_id', currentSeasonId);
+    console.log("Loading matches from Supabase...");
+    const { data, error } = await supabase
+        .from('matches')
+        .select('*, match_ratings(*), match_awards(*)');
+
     if (error) {
         console.error("Error loading matches:", error);
         matches = [];
-    } else {
-        matches = (data || []).map(m => {
-            const awardsObj = {};
-            (m.match_awards || []).forEach(aw => {
-                awardsObj[aw.type] = aw.player_id;
-            });
-
-            return {
-                ...m,
-                ratings: (m.match_ratings || []).map(r => ({
-                    player_id: r.player_id,
-                    rating: r.rating
-                })),
-                awards: awardsObj
-            };
-        });
+        return;
     }
+
+    matches = (data || []).map(m => {
+        const awardsObj = {};
+        (m.match_awards || []).forEach(aw => {
+            awardsObj[aw.type] = aw.player_id;
+        });
+
+        return {
+            ...m,
+            ratings: (m.match_ratings || []).map(r => ({
+                player_id: r.player_id,
+                rating: r.rating
+            })),
+            awards: awardsObj
+        };
+    });
+    console.log("Loaded matches:", matches);
 }
 
 async function savePlayerToDB(player) {
@@ -334,8 +339,10 @@ function showPage(id) {
 
 // --- RENDER CORE ---
 async function renderAll() {
-    await loadPlayers();
-    await loadMatches();
+    // Ensure data is loaded
+    if (players.length === 0) await loadPlayers();
+    if (matches.length === 0) await loadMatches();
+
     await renderDashboard();
     renderSquad();
     renderMatches();
@@ -421,7 +428,14 @@ if(star) {
 // FIX 3: MATCH LIST (Structured Cards)
 function renderMatches() {
     const list = document.getElementById('match-history-list');
-    list.innerHTML = matches.slice().reverse().map(m => `
+    if (!list) return;
+    
+    // Filter matches by current season if needed, or show all if that's the goal
+    const displayMatches = currentSeasonId 
+        ? matches.filter(m => m.season_id === currentSeasonId)
+        : matches;
+
+    list.innerHTML = (displayMatches || []).slice().reverse().map(m => `
         <div class="match-card" style="position:relative">
             <div class="action-view-match" data-id="${m.id}" style="cursor:pointer">
                 <div class="match-score">${m.score_a} - ${m.score_b}</div>
@@ -872,7 +886,10 @@ async function handleSavePlayer() {
 }
 
 async function init() {
+    console.log("Initializing XBFA System...");
     await loadSeasons();
+    await loadPlayers();
+    await loadMatches();
     updateSeasonSelector();
     await renderAll();
     setupEventListeners();
@@ -1089,11 +1106,7 @@ function setupEventListeners() {
     };
 }
 
-// Ensure init is called after DOM load
-window.addEventListener('DOMContentLoaded', init);
-window.addEventListener('DOMContentLoaded', updateSeasonSelector);
-
-// Remove the old global exposures at the end of the file
+// Initialization listeners are handled in checkAuth
 function openMatchStudio() {
     const isAdmin = userRole === "admin";
     studioMatch = { team_a: [], team_b: [], events: [] };
@@ -1632,8 +1645,7 @@ async function switchSeason(id) {
 }
 
 // Call on load
-window.addEventListener('DOMContentLoaded', init);
-window.addEventListener('DOMContentLoaded', updateSeasonSelector);  
+// Initialization is handled via checkAuth -> init()
 
 // LISTENERS
 window.addEventListener('DOMContentLoaded', () => {
