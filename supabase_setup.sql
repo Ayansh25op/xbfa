@@ -120,18 +120,28 @@ ALTER TABLE public.awards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.match_awards ENABLE ROW LEVEL SECURITY;
 
 -- 4.1 Policies
+DROP POLICY IF EXISTS "Allow all for authenticated users" ON public.players;
+DROP POLICY IF EXISTS "Allow select for everyone" ON public.players;
 CREATE POLICY "Allow all for authenticated users" ON public.players FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Allow select for everyone" ON public.players FOR SELECT TO public USING (true);
 
+DROP POLICY IF EXISTS "Allow all for authenticated users" ON public.matches;
+DROP POLICY IF EXISTS "Allow select for everyone" ON public.matches;
 CREATE POLICY "Allow all for authenticated users" ON public.matches FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Allow select for everyone" ON public.matches FOR SELECT TO public USING (true);
 
+DROP POLICY IF EXISTS "Allow all for authenticated users" ON public.seasons;
+DROP POLICY IF EXISTS "Allow select for everyone" ON public.seasons;
 CREATE POLICY "Allow all for authenticated users" ON public.seasons FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Allow select for everyone" ON public.seasons FOR SELECT TO public USING (true);
 
+DROP POLICY IF EXISTS "Allow all for authenticated users" ON public.match_ratings;
+DROP POLICY IF EXISTS "Allow select for everyone" ON public.match_ratings;
 CREATE POLICY "Allow all for authenticated users" ON public.match_ratings FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Allow select for everyone" ON public.match_ratings FOR SELECT TO public USING (true);
 
+DROP POLICY IF EXISTS "Allow all for authenticated users" ON public.awards;
+DROP POLICY IF EXISTS "Allow select for everyone" ON public.awards;
 CREATE POLICY "Allow all for authenticated users" ON public.awards FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Allow select for everyone" ON public.awards FOR SELECT TO public USING (true);
 
@@ -140,11 +150,19 @@ DROP POLICY IF EXISTS "match_awards_authenticated_all" ON public.match_awards;
 DROP POLICY IF EXISTS "match_awards_public_select" ON public.match_awards;
 DROP POLICY IF EXISTS "Allow all for authenticated users" ON public.match_awards;
 DROP POLICY IF EXISTS "Allow select for everyone" ON public.match_awards;
+DROP POLICY IF EXISTS "match_awards_all_access" ON public.match_awards;
 
 CREATE POLICY "match_awards_all_access" ON public.match_awards FOR ALL TO public USING (true) WITH CHECK (true);
 
-CREATE POLICY "Allow users to read their own role" ON public.user_roles FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Allow users to read their own role" ON public.user_roles;
+DROP POLICY IF EXISTS "Allow admins to manage all roles" ON public.user_roles;
+CREATE POLICY "Allow users to read their own role" ON public.user_roles FOR SELECT TO authenticated USING (auth.uid() = user_id OR (EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role = 'admin')) OR (SELECT auth.jwt() ->> 'email') = 'admin@xbfa.com');
+CREATE POLICY "Allow admins to manage all roles" ON public.user_roles FOR ALL TO authenticated USING ((EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role = 'admin')) OR (SELECT auth.jwt() ->> 'email') = 'admin@xbfa.com');
+
+DROP POLICY IF EXISTS "Allow users to read profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Allow admins to manage all profiles" ON public.profiles;
 CREATE POLICY "Allow users to read profiles" ON public.profiles FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Allow admins to manage all profiles" ON public.profiles FOR ALL TO authenticated USING ((EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role = 'admin')) OR (SELECT auth.jwt() ->> 'email') = 'admin@xbfa.com');
 
 -- 5. Trigger for new users
 CREATE OR REPLACE FUNCTION public.handle_new_user()

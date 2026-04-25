@@ -1769,7 +1769,7 @@ async function createUser() {
                 email,
                 password,
                 role,
-                adminEmail: session.user.email
+                adminToken: session.access_token
             })
         });
 
@@ -1805,8 +1805,8 @@ async function renderIdManager() {
 
         <div id="user-body-${i}" style="display:none; flex-direction:column; gap:12px; margin-top:8px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.05)">
             <div style="display:flex; flex-direction:column; gap:5px">
-                <label style="font-size:0.7rem; opacity:0.6">PASSWORD</label>
-                <input type="text" id="pwd-${i}" class="input-modern" value="${u.password}" style="margin:0; padding:8px;">
+                <label style="font-size:0.7rem; opacity:0.6">NEW PASSWORD</label>
+                <input type="password" id="pwd-${i}" class="input-modern" placeholder="Update password" style="margin:0; padding:8px;">
             </div>
             <div style="display:flex; gap:10px">
                 <button class="btn-cyan action-update-user-password" data-id="${u.id}" data-index="${i}" style="flex:2">Update</button>
@@ -1838,28 +1838,54 @@ async function updateUserPassword(id, index) {
         return;
     }
 
-    const { error } = await supabase.from('profiles').update({ password: newPass }).eq('id', id);
-    if (!error) {
-        showAlertModal("Password updated!");
-    } else {
-        showAlertModal("Error updating password: " + error.message);
+    try {
+        const response = await fetch('/api/admin/update-user-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                userId: id,
+                newPassword: newPass,
+                adminToken: session.access_token
+            })
+        });
+
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error);
+
+        showAlertModal("Password updated successfully!");
+        document.getElementById(`pwd-${index}`).value = "";
+    } catch (err) {
+        showAlertModal("Error updating password: " + err.message);
     }
 }
 
 async function deleteUser(id) {
     if (userRole !== "admin") return;
-    openConfirmModal("Delete this user?", async () => {
-        await supabase.from('profiles').delete().eq('id', id);
-        await renderIdManager();
+    openConfirmModal("Delete this user? This cannot be undone.", async () => {
+        try {
+            const response = await fetch('/api/admin/delete-user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: id,
+                    adminToken: session.access_token
+                })
+            });
+
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error);
+
+            showAlertModal("User deleted successfully");
+            await renderIdManager();
+        } catch (err) {
+            showAlertModal("Error deleting user: " + err.message);
+        }
     }, "delete");
 }
 
 async function deleteAllUsers() {
     if (userRole !== "admin") return;
-    openConfirmModal("Delete ALL users?", async () => {
-        await supabase.from('profiles').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        await renderIdManager();
-    }, "delete");
+    showAlertModal("Batch deletion currently disabled for safety. Delete users individually.");
 }
 
 function toggleStudioSection(headerEl) {
