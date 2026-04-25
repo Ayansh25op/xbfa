@@ -87,7 +87,11 @@ async function loadPlayers() {
         console.error("Error loading players:", error);
         players = [];
     } else {
-        players = data || [];
+        players = (data || []).map(p => ({
+            ...p,
+            avgRating: p.avg_rating,
+            latestRating: p.latest_rating
+        }));
     }
 }
 
@@ -225,12 +229,15 @@ async function deleteMatchFromDB(id) {
  * Processes matches to update goal counts and match counts.
  * This ensures the dashboard and leaderboards stay accurate after deletions or edits.
  */
-function recalculateStats() {
+async function recalculateStats() {
     const activeMatches = matches;
     const activePlayers = players;
 
+    console.log("Recalculating stats for", activePlayers.length, "players using", activeMatches.length, "matches");
+
     // Reset stats for all active players
     activePlayers.forEach(p => {
+        if (!p) return;
         p.goals = 0;
         p.matches = 0;
         p.avgRating = 0;
@@ -272,13 +279,37 @@ function recalculateStats() {
         }
     });
 
-    activePlayers.forEach(p => {
+    // Update DB for each player
+    const updatePromises = activePlayers.map(async (p) => {
+        if (!p) return;
+        
         if (p.ratingCount > 0) {
             p.avgRating = (p.totalRatingScore / p.ratingCount).toFixed(1);
         }
+        
+        const finalGoals = p.goals || 0;
+        const finalMatches = p.matches || 0;
+        const finalAvgRating = p.avgRating || 0;
+        const finalLatestRating = p.latestRating || null;
+
+        console.log(`Player ${p.name}: Goals=${finalGoals}, Matches=${finalMatches}, Avg=${finalAvgRating}, Latest=${finalLatestRating}`);
+
+        // Persist to Supabase
+        const { error } = await supabase.from('players').update({
+            goals: finalGoals,
+            matches: finalMatches,
+            avg_rating: finalAvgRating,
+            latest_rating: finalLatestRating
+        }).eq('id', p.id);
+
+        if (error) console.error(`Error updating stats for ${p.name}:`, error);
+
         delete p.totalRatingScore;
         delete p.ratingCount;
     });
+
+    await Promise.all(updatePromises);
+    console.log("Recalculation complete and persisted to DB.");
 }
 
 

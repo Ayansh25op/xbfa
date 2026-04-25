@@ -25,9 +25,30 @@ CREATE TABLE IF NOT EXISTS public.players (
   jersey_number INTEGER,
   pos TEXT,
   rating INTEGER DEFAULT 0,
+  goals INTEGER DEFAULT 0,
+  matches INTEGER DEFAULT 0,
+  avg_rating DECIMAL(3,1) DEFAULT 0,
+  latest_rating DECIMAL(3,1),
   photo TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
+
+-- Ensure goals and matches columns exist
+DO $$ 
+BEGIN 
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='players' AND column_name='goals') THEN
+        ALTER TABLE public.players ADD COLUMN goals INTEGER DEFAULT 0;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='players' AND column_name='matches') THEN
+        ALTER TABLE public.players ADD COLUMN matches INTEGER DEFAULT 0;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='players' AND column_name='avg_rating') THEN
+        ALTER TABLE public.players ADD COLUMN avg_rating DECIMAL(3,1) DEFAULT 0;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='players' AND column_name='latest_rating') THEN
+        ALTER TABLE public.players ADD COLUMN latest_rating DECIMAL(3,1);
+    END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS public.matches (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
