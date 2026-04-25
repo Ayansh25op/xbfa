@@ -10,6 +10,11 @@ async function startServer() {
 
   app.use(express.json());
 
+  // Health check
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok" });
+  });
+
   // Supabase Admin Client
   const supabaseAdmin = createClient(
     process.env.VITE_SUPABASE_URL || "",
@@ -18,23 +23,26 @@ async function startServer() {
 
   // API Route: Create User (Admin Only)
   app.post("/api/admin/create-user", async (req, res) => {
+    console.log("POST /api/admin/create-user - Request Body:", req.body);
     const { email, password, role, adminToken } = req.body;
 
     if (!email || !password || !role) {
+      console.error("Missing fields:", { email, password: !!password, role });
       return res.status(400).json({ error: "Missing required fields" });
     }
 
     try {
       // 1. Verify the caller is an admin using Supabase
-      // We use the token sent from the frontend to identify the user
       const { data: { user: adminUser }, error: verifyError } = await supabaseAdmin.auth.getUser(adminToken);
       
       if (verifyError || !adminUser) {
+        console.error("Verification error:", verifyError);
         return res.status(401).json({ error: "Unauthorized" });
       }
 
+      console.log("Admin user verified:", adminUser.email);
+
       // Check if this user is allowed to be an admin
-      // Hardcoded master admin OR check user_roles table
       const { data: roleData } = await supabaseAdmin
         .from('user_roles')
         .select('role')
@@ -44,27 +52,36 @@ async function startServer() {
       const isAdmin = adminUser.email === "admin@xbfa.com" || (roleData && roleData.role === 'admin');
 
       if (!isAdmin) {
+        console.error("User is not an admin:", adminUser.email);
         return res.status(403).json({ error: "Forbidden: Admin access required" });
       }
 
       // 2. Create Auth User
+      console.log("Creating new user in Supabase Auth...");
       const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email,
         password,
         email_confirm: true // Skip email confirmation
       });
 
-      if (authError) throw authError;
+      if (authError) {
+        console.error("Auth creation error:", authError);
+        throw authError;
+      }
 
       const newUser = authUser.user;
+      console.log("New user created successfully:", newUser.id);
 
-      // 3. Set Role in user_roles (Upsert to overwrite trigger default if any)
+      // 3. Set Role in user_roles
       const { error: roleError } = await supabaseAdmin.from('user_roles').upsert({
         user_id: newUser.id,
         role: role
       });
 
-      if (roleError) throw roleError;
+      if (roleError) {
+        console.error("Role assignment error:", roleError);
+        throw roleError;
+      }
 
       // 4. Create/Update Profile
       const { error: profileError } = await supabaseAdmin.from('profiles').upsert({
@@ -73,60 +90,88 @@ async function startServer() {
         role: role
       });
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error("Profile creation error:", profileError);
+        throw profileError;
+      }
 
+      console.log("User management completion successful.");
       res.json({ message: "User created successfully", user: newUser });
     } catch (error: any) {
-      console.error("Admin user creation error:", error);
+      console.error("Admin user creation error (catch):", error);
       res.status(500).json({ error: error.message || "Internal server error" });
     }
   });
 
   // API Route: Update User Password (Admin Only)
   app.post("/api/admin/update-user-password", async (req, res) => {
+    console.log("POST /api/admin/update-user-password - Request Body:", req.body);
     const { userId, newPassword, adminToken } = req.body;
 
     try {
       const { data: { user: adminUser }, error: verifyError } = await supabaseAdmin.auth.getUser(adminToken);
-      if (verifyError || !adminUser) return res.status(401).json({ error: "Unauthorized" });
+      if (verifyError || !adminUser) {
+        console.error("Verification error:", verifyError);
+        return res.status(401).json({ error: "Unauthorized" });
+      }
 
       const { data: roleData } = await supabaseAdmin.from('user_roles').select('role').eq('user_id', adminUser.id).single();
       const isAdmin = adminUser.email === "admin@xbfa.com" || (roleData && roleData.role === 'admin');
-      if (!isAdmin) return res.status(403).json({ error: "Forbidden" });
+      if (!isAdmin) {
+        console.error("User is not an admin:", adminUser.email);
+        return res.status(403).json({ error: "Forbidden" });
+      }
 
+      console.log("Updating password for user:", userId);
       const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(userId, { password: newPassword });
-      if (authError) throw authError;
+      if (authError) {
+        console.error("Auth password update error:", authError);
+        throw authError;
+      }
 
       res.json({ message: "Password updated successfully" });
     } catch (error: any) {
-      console.error("Admin password update error:", error);
+      console.error("Admin password update error (catch):", error);
       res.status(500).json({ error: error.message });
     }
   });
 
   // API Route: Delete User (Admin Only)
   app.post("/api/admin/delete-user", async (req, res) => {
+    console.log("POST /api/admin/delete-user - Request Body:", req.body);
     const { userId, adminToken } = req.body;
 
     try {
       const { data: { user: adminUser }, error: verifyError } = await supabaseAdmin.auth.getUser(adminToken);
-      if (verifyError || !adminUser) return res.status(401).json({ error: "Unauthorized" });
+      if (verifyError || !adminUser) {
+        console.error("Verification error:", verifyError);
+        return res.status(401).json({ error: "Unauthorized" });
+      }
 
       const { data: roleData } = await supabaseAdmin.from('user_roles').select('role').eq('user_id', adminUser.id).single();
       const isAdmin = adminUser.email === "admin@xbfa.com" || (roleData && roleData.role === 'admin');
-      if (!isAdmin) return res.status(403).json({ error: "Forbidden" });
+      if (!isAdmin) {
+        console.error("User is not an admin:", adminUser.email);
+        return res.status(403).json({ error: "Forbidden" });
+      }
 
+      console.log("Deleting user:", userId);
       const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
-      if (authError) throw authError;
-
-      // Note: user_roles and profiles will be deleted by ON DELETE CASCADE if set up correctly
-      // In our SQL, we have REFERENCES auth.users ON DELETE CASCADE
+      if (authError) {
+        console.error("Auth delete error:", authError);
+        throw authError;
+      }
 
       res.json({ message: "User deleted successfully" });
     } catch (error: any) {
-      console.error("Admin user delete error:", error);
+      console.error("Admin user delete error (catch):", error);
       res.status(500).json({ error: error.message });
     }
+  });
+
+  // 404 handler for /api routes
+  app.use("/api/*", (req, res) => {
+    res.status(404).json({ error: `API route ${req.method} ${req.originalUrl} not found` });
   });
 
   // Vite middleware for development

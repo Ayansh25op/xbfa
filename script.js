@@ -887,6 +887,13 @@ async function handleSavePlayer() {
 
 async function init() {
     console.log("Initializing XBFA System...");
+    
+    // Quick API health check
+    fetch('/api/health')
+        .then(res => res.json())
+        .then(data => console.log("API Status:", data.status))
+        .catch(err => console.error("API is unreachable:", err));
+
     await loadSeasons();
     await loadPlayers();
     await loadMatches();
@@ -1773,7 +1780,16 @@ async function createUser() {
             })
         });
 
-        const result = await response.json();
+        const text = await response.text();
+        console.log("RAW RESPONSE (Create):", text);
+
+        let result;
+        try {
+            result = JSON.parse(text);
+        } catch (e) {
+            console.error("JSON Parse Error:", e);
+            throw new Error(`Invalid server response (Status: ${response.status}). See console for details.`);
+        }
 
         if (!response.ok) throw new Error(result.error || "Failed to create user");
 
@@ -1849,7 +1865,17 @@ async function updateUserPassword(id, index) {
             })
         });
 
-        const result = await response.json();
+        const text = await response.text();
+        console.log("RAW RESPONSE (Update Pwd):", text);
+
+        let result;
+        try {
+            result = JSON.parse(text);
+        } catch (e) {
+            console.error("JSON Parse Error:", e);
+            throw new Error(`Invalid server response (Status: ${response.status})`);
+        }
+
         if (!response.ok) throw new Error(result.error);
 
         showAlertModal("Password updated successfully!");
@@ -1872,7 +1898,17 @@ async function deleteUser(id) {
                 })
             });
 
-            const result = await response.json();
+            const text = await response.text();
+            console.log("RAW RESPONSE (Delete):", text);
+
+            let result;
+            try {
+                result = JSON.parse(text);
+            } catch (e) {
+                console.error("JSON Parse Error:", e);
+                throw new Error(`Invalid server response (Status: ${response.status})`);
+            }
+
             if (!response.ok) throw new Error(result.error);
 
             showAlertModal("User deleted successfully");
