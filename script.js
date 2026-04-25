@@ -1,4 +1,4 @@
-import { supabase } from './supabase.js'
+import { supabase, supabaseUrl, anonKey } from './supabase.js'
 
 // --- AUTH & SESSION ---
 let session = null;
@@ -1769,26 +1769,32 @@ async function createUser() {
     showAlertModal("Creating account...");
 
     try {
-        const response = await fetch('/api/admin/create-user', {
+        const functionUrl = `${supabaseUrl}/functions/v1/create-user`;
+        console.log("Calling Edge Function:", functionUrl);
+
+        const response = await fetch(functionUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'apiKey': anonKey,
+                'Authorization': `Bearer ${session.access_token}`
+            },
             body: JSON.stringify({
                 email,
                 password,
-                role,
-                adminToken: session.access_token
+                role
             })
         });
 
         const text = await response.text();
-        console.log("RAW RESPONSE (Create):", text);
+        console.log("RAW RESPONSE (Create User):", text);
 
         let result;
         try {
             result = JSON.parse(text);
         } catch (e) {
-            console.error("JSON Parse Error:", e);
-            throw new Error(`Invalid server response (Status: ${response.status}). See console for details.`);
+            console.error("JSON Parse Error (Create User):", e);
+            throw new Error(`Invalid server response (Status: ${response.status}). Expected JSON but got: ${text.substring(0, 100)}...`);
         }
 
         if (!response.ok) throw new Error(result.error || "Failed to create user");
@@ -1855,13 +1861,19 @@ async function updateUserPassword(id, index) {
     }
 
     try {
-        const response = await fetch('/api/admin/update-user-password', {
+        const functionUrl = `${supabaseUrl}/functions/v1/update-user-password`;
+        console.log("Calling Edge Function:", functionUrl);
+
+        const response = await fetch(functionUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'apiKey': anonKey,
+                'Authorization': `Bearer ${session.access_token}`
+            },
             body: JSON.stringify({
                 userId: id,
-                newPassword: newPass,
-                adminToken: session.access_token
+                newPassword: newPass
             })
         });
 
@@ -1872,7 +1884,7 @@ async function updateUserPassword(id, index) {
         try {
             result = JSON.parse(text);
         } catch (e) {
-            console.error("JSON Parse Error:", e);
+            console.error("JSON Parse Error (Update Pwd):", e);
             throw new Error(`Invalid server response (Status: ${response.status})`);
         }
 
@@ -1889,12 +1901,18 @@ async function deleteUser(id) {
     if (userRole !== "admin") return;
     openConfirmModal("Delete this user? This cannot be undone.", async () => {
         try {
-            const response = await fetch('/api/admin/delete-user', {
+            const functionUrl = `${supabaseUrl}/functions/v1/delete-user`;
+            console.log("Calling Edge Function:", functionUrl);
+
+            const response = await fetch(functionUrl, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'apiKey': anonKey,
+                    'Authorization': `Bearer ${session.access_token}`
+                },
                 body: JSON.stringify({
-                    userId: id,
-                    adminToken: session.access_token
+                    userId: id
                 })
             });
 
@@ -1905,7 +1923,7 @@ async function deleteUser(id) {
             try {
                 result = JSON.parse(text);
             } catch (e) {
-                console.error("JSON Parse Error:", e);
+                console.error("JSON Parse Error (Delete):", e);
                 throw new Error(`Invalid server response (Status: ${response.status})`);
             }
 
