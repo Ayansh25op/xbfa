@@ -153,11 +153,11 @@ async function saveMatchToDB(match) {
     const cleanMatchData = {
         date: match.date,
         title: match.title,
-        team_a: match.team_a,
-        team_b: match.team_b,
-        events: match.events,
-        score_a: match.score_a,
-        score_b: match.score_b,
+        team_a: match.team_a || [],
+        team_b: match.team_b || [],
+        events: match.events || [],
+        score_a: match.score_a || 0,
+        score_b: match.score_b || 0,
         season_id: currentSeasonId
     };
 
@@ -476,11 +476,17 @@ function viewMatchDetail(id) {
         <div class="detail-timeline-modern">
             <h4><i class="fas fa-history"></i> MATCH EVENTS</h4>
             <div class="timeline-list">
-                ${m.events.length > 0 ? m.events.map(ev => `
+                ${m.events.length > 0 ? m.events.map(ev => {
+                    let eventLabel = '<i class="fas fa-futbol"></i>';
+                    if (ev.ownGoal && ev.penalty) eventLabel = '(OG, PEN)';
+                    else if (ev.ownGoal) eventLabel = '(OG)';
+                    else if (ev.penalty) eventLabel = '(PEN)';
+
+                    return `
                     <div class="timeline-event">
                         <div class="event-min">${ev.min}'</div>
                         <div class="event-info">
-                            <span class="event-scorer"><strong>${getP(ev.scorer)}</strong> ${ev.ownGoal ? '(OG)' : '<i class="fas fa-futbol"></i>'}</span>
+                            <span class="event-scorer"><strong>${getP(ev.scorer)}</strong> ${eventLabel}</span>
                         </div>
                         <div class="event-team" style="color:${
                             (ev.ownGoal ? (ev.team === 'A' ? 'var(--team-b)' : 'var(--team-a)') : (ev.team === 'A' ? 'var(--team-a)' : 'var(--team-b)'))
@@ -488,7 +494,7 @@ function viewMatchDetail(id) {
                             TEAM ${ev.ownGoal ? (ev.team === 'A' ? 'B' : 'A') : ev.team}
                         </div>
                     </div>
-                `).join('') : '<p class="text-dim" style="padding:20px">No goals were recorded in this match.</p>'}
+                `}).join('') : '<p class="text-dim" style="padding:20px">No goals were recorded in this match.</p>'}
             </div>
         </div>
 
@@ -1165,19 +1171,29 @@ function addGoalRow(initialData = null) {
         <div style="width: 70px;">
             <input type="number" placeholder="Min" class="m-min" value="${initialData?.min || ''}" style="margin:0; padding:8px;" ${!isAdmin ? 'disabled' : ''}>
         </div>
-        <div style="flex: 1;">
+        <div style="flex: 2;">
             <select class="m-scorer" style="margin:0; padding:8px;" ${!isAdmin ? 'disabled' : ''}>
                 ${opts}
             </select>
         </div>
-        <div style="width: 100px;">
-            <label class="og-toggle" style="display:flex; align-items:center; gap:5px; cursor:pointer;">
-                <input type="checkbox" class="m-owngoal" ${initialData?.ownGoal ? 'checked' : ''} ${!isAdmin ? 'disabled' : ''}>
-                <span style="font-size:0.8rem;">OG</span>
-            </label>
+        <div style="display: flex; gap: 15px; align-items: center;">
+            <div class="toggle-label-pill">
+                <span class="toggle-text">OG</span>
+                <label class="modern-toggle og-style">
+                    <input type="checkbox" class="m-owngoal" ${initialData?.ownGoal ? 'checked' : ''} ${!isAdmin ? 'disabled' : ''}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="toggle-label-pill">
+                <span class="toggle-text">PEN</span>
+                <label class="modern-toggle pen-style">
+                    <input type="checkbox" class="m-penalty" ${initialData?.penalty ? 'checked' : ''} ${!isAdmin ? 'disabled' : ''}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
         </div>
         ${isAdmin ? `
-        <button class="goal-delete action-remove-timeline-row" style="background:none; border:none; color:#ff4d4d; cursor:pointer; font-size:1.2rem;">
+        <button class="goal-delete action-remove-timeline-row" style="background:none; border:none; color:#ff4d4d; cursor:pointer; font-size:1.2rem; margin-left: 10px;">
             <i class="fas fa-times-circle"></i>
         </button>
         ` : ''}
@@ -1269,6 +1285,7 @@ async function saveMatch() {
             const min = parseInt(r.querySelector('.m-min').value);
             const scorer = r.querySelector('.m-scorer').value;
             const ownGoal = r.querySelector('.m-owngoal')?.checked;
+            const penalty = r.querySelector('.m-penalty')?.checked;
 
             if (!isNaN(min) && scorer) {
                 let team;
@@ -1279,7 +1296,7 @@ async function saveMatch() {
                 } else {
                     team = 'A'; // fallback
                 }
-                events.push({ min, team, scorer, ownGoal });
+                events.push({ min, team, scorer, ownGoal, penalty });
             }
         });
 

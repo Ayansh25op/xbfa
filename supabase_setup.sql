@@ -42,6 +42,26 @@ CREATE TABLE IF NOT EXISTS public.matches (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
+-- Ensure events and other columns exist if table was created earlier without them
+DO $$ 
+BEGIN 
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='events') THEN
+        ALTER TABLE public.matches ADD COLUMN events JSONB DEFAULT '[]';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='team_a') THEN
+        ALTER TABLE public.matches ADD COLUMN team_a UUID[] DEFAULT '{}';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='team_b') THEN
+        ALTER TABLE public.matches ADD COLUMN team_b UUID[] DEFAULT '{}';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='score_a') THEN
+        ALTER TABLE public.matches ADD COLUMN score_a INTEGER DEFAULT 0;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='score_b') THEN
+        ALTER TABLE public.matches ADD COLUMN score_b INTEGER DEFAULT 0;
+    END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS public.match_ratings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   match_id UUID REFERENCES public.matches(id) ON DELETE CASCADE,
@@ -94,8 +114,13 @@ CREATE POLICY "Allow select for everyone" ON public.match_ratings FOR SELECT TO 
 CREATE POLICY "Allow all for authenticated users" ON public.awards FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Allow select for everyone" ON public.awards FOR SELECT TO public USING (true);
 
-CREATE POLICY "Allow all for authenticated users" ON public.match_awards FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Allow select for everyone" ON public.match_awards FOR SELECT TO public USING (true);
+-- 117
+DROP POLICY IF EXISTS "match_awards_authenticated_all" ON public.match_awards;
+DROP POLICY IF EXISTS "match_awards_public_select" ON public.match_awards;
+DROP POLICY IF EXISTS "Allow all for authenticated users" ON public.match_awards;
+DROP POLICY IF EXISTS "Allow select for everyone" ON public.match_awards;
+
+CREATE POLICY "match_awards_all_access" ON public.match_awards FOR ALL TO public USING (true) WITH CHECK (true);
 
 CREATE POLICY "Allow users to read their own role" ON public.user_roles FOR SELECT TO authenticated USING (auth.uid() = user_id);
 CREATE POLICY "Allow users to read profiles" ON public.profiles FOR SELECT TO authenticated USING (true);

@@ -315,19 +315,19 @@ h1 { font-size: 2.5rem; font-style: italic; margin-bottom: 30px; letter-spacing:
 }
 
 /* Position-based Gradient Tints */
-.pos-st { 
+.pos-st, .pos-cf { 
     background: linear-gradient(180deg, #00ff87 0%, #00a356 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     color: #00ff87; 
 }
-.pos-cam, .pos-mid { 
+.pos-cam, .pos-cm, .pos-lw, .pos-rw { 
     background: linear-gradient(180deg, #bf00ff 0%, #7a00a3 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     color: #bf00ff; 
 }
-.pos-cb, .pos-def { 
+.pos-cdm, .pos-cb, .pos-lb, .pos-rb { 
     background: linear-gradient(180deg, #00d4ff 0%, #0089a3 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -339,6 +339,76 @@ h1 { font-size: 2.5rem; font-style: italic; margin-bottom: 30px; letter-spacing:
     -webkit-text-fill-color: transparent;
     color: #0084ff; 
 }
+
+/* Modern Toggles */
+.modern-toggle {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    background: #222;
+    padding: 2px;
+    border-radius: 20px;
+    position: relative;
+    user-select: none;
+    transition: 0.3s;
+    border: 1px solid #333;
+    width: 60px;
+    height: 30px;
+}
+
+.modern-toggle input {
+    display: none;
+}
+
+.toggle-slider {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 24px;
+    height: 24px;
+    background: #555;
+    border-radius: 50%;
+    transition: 0.3s cubic-bezier(0.18, 0.89, 0.35, 1.15);
+}
+
+.modern-toggle input:checked + .toggle-slider {
+    left: 32px;
+    background: #fff;
+}
+
+.modern-toggle.og-style input:checked ~ .toggle-slider {
+    background: var(--team-b);
+    box-shadow: 0 0 10px rgba(255, 77, 77, 0.5);
+}
+
+.modern-toggle.pen-style input:checked ~ .toggle-slider {
+    background: var(--accent);
+    box-shadow: 0 0 10px rgba(0, 255, 135, 0.5);
+}
+
+.modern-toggle:hover {
+    border-color: #444;
+}
+
+.toggle-label-pill {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.toggle-text {
+    font-size: 0.65rem;
+    font-weight: 800;
+    color: var(--text-dim);
+    text-transform: uppercase;
+}
+
+.modern-toggle input:checked + .toggle-slider + .toggle-text,
+.modern-toggle input:checked ~ .toggle-text {
+    color: #fff;
+}
+
 
 /* FIX: Match Card UI */
 .match-history-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px; }
