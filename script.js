@@ -1,4 +1,4 @@
-import { supabase } from './supabase.js'
+import { supabase, supabaseUrl, anonKey } from './supabase.js'
 
 // --- AUTH & SESSION ---
 let session = null;
@@ -917,6 +917,9 @@ function setupEventListeners() {
         'logoutVisitorBtn': () => logout(),
         'openSeasonManagerBtn': () => openSeasonManager(),
         'exportDataBtn': () => exportData(),
+        'openUserMgmtBtn': () => { loadUsers(); toggleModal('user-mgmt-modal', true); },
+        'closeUserMgmtBtn': () => toggleModal('user-mgmt-modal', false),
+        'createUserBtn': () => createUser(),
         'closePlayerStudioBtn': () => toggleModal('player-studio-modal', false),
         'savePlayerBtn': () => handleSavePlayer(),
         'closeMatchStudioBtn': () => toggleModal('match-studio-modal', false),
@@ -1000,6 +1003,13 @@ function setupEventListeners() {
         const delPlayer = target.closest('.action-delete-player');
         if (delPlayer) {
             deletePlayer(delPlayer.dataset.id);
+            return;
+        }
+
+        // User Actions
+        const delUser = target.closest('.action-delete-user');
+        if (delUser) {
+            deleteUser(delUser.dataset.id);
             return;
         }
         const editPlayer = target.closest('.action-edit-player');
@@ -1735,6 +1745,147 @@ function toggleStudioSection(headerEl) {
 function togglePlayerPool() {
     const el = document.getElementById('ms-player-pool-container');
     el.classList.toggle('hidden');
+}
+
+// ===== USER MANAGEMENT =====
+
+async function loadUsers() {
+    const isAdmin = userRole === "admin";
+    if (!isAdmin) return;
+
+    const list = document.getElementById('user-list-container');
+    const countEl = document.getElementById('user-count');
+    if (!list) return;
+
+    list.innerHTML = `<div style="text-align:center; padding:20px; opacity:0.5;">Loading users...</div>`;
+
+    try {
+        const { data: users, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        countEl.innerText = `${users.length} Users`;
+
+        if (users.length === 0) {
+            list.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-dim);">No users found.</div>`;
+            return;
+        }
+
+        list.innerHTML = users.map(u => `
+            <div class="glass-card" style="padding: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.05);">
+                <div style="display: flex; flex-direction: column; gap: 2px;">
+                    <span style="font-weight: 500; font-size: 0.9rem;">${u.username}</span>
+                    <span class="accent-text" style="font-size: 0.7rem; font-weight: bold; text-transform: uppercase;">${u.role}</span>
+                </div>
+                <button class="btn-danger action-delete-user" data-id="${u.id}" style="padding: 6px 10px; font-size: 0.7rem;">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `).join('');
+
+    } catch (err) {
+        console.error("Error loading users:", err);
+        list.innerHTML = `<div style="text-align:center; padding:20px; color:var(--red);">Failed to load users.</div>`;
+    }
+}
+
+async function createUser() {
+    if (userRole !== "admin") return;
+
+    const email = document.getElementById('um-email').value.trim();
+    const password = document.getElementById('um-password').value.trim();
+    const role = document.getElementById('um-role').value;
+
+    if (!email || !password) {
+        showAlertModal("Please enter both email and password.");
+        return;
+    }
+
+    showAlertModal("Creating user... please wait.");
+
+    try {
+        const functionUrl = `${supabaseUrl}/functions/v1/create-user`;
+        const response = await fetch(functionUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+                'apikey': anonKey
+            },
+            body: JSON.stringify({ email, password, role })
+        });
+
+        const text = await response.text();
+        let result;
+        try {
+            result = JSON.parse(text);
+        } catch (e) {
+            console.error("Non-JSON response:", text);
+            throw new Error("Server returned an invalid response format.");
+        }
+
+        if (!response.ok) {
+            throw new Error(result.error || "Failed to create user.");
+        }
+
+        showAlertModal("User created successfully!");
+        document.getElementById('um-email').value = "";
+        document.getElementById('um-password').value = "";
+        await loadUsers();
+
+    } catch (err) {
+        console.error("Create user error:", err);
+        showAlertModal("Error: " + err.message);
+    }
+}
+
+async function deleteUser(id) {
+    if (userRole !== "admin") return;
+    
+    // Prevent self-deletion if possible
+    if (session && session.user.id === id) {
+        showAlertModal("You cannot delete your own account.");
+        return;
+    }
+
+    openConfirmModal("Are you sure you want to delete this user? This action is irreversible.", async () => {
+        showAlertModal("Deleting user...");
+        try {
+            const functionUrl = `${supabaseUrl}/functions/v1/delete-user`;
+            const response = await fetch(functionUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'apikey': anonKey
+                },
+                body: JSON.stringify({ userId: id })
+            });
+
+            const text = await response.text();
+            let result;
+            try {
+                result = JSON.parse(text);
+            } catch (e) {
+                console.error("Non-JSON response:", text);
+                throw new Error("Server returned an invalid response format.");
+            }
+
+            if (!response.ok) {
+                throw new Error(result.error || "Failed to delete user.");
+            }
+
+            showAlertModal("User deleted successfully.");
+            await loadUsers();
+
+        } catch (err) {
+            console.error("Delete user error:", err);
+            showAlertModal("Error: " + err.message);
+        }
+    });
 }
 
 // Initialization listeners are handled in checkAuth and setupEventListeners

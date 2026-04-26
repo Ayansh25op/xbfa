@@ -1318,6 +1318,38 @@ input, select { background: #000; border: 1px solid #333; color: #fff; padding: 
     transition: 0.2s;
 }
 
+
+/* USER MANAGEMENT STYLES */
+#user-list-container {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 255, 133, 0.2) transparent;
+}
+
+#user-list-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+#user-list-container::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 255, 133, 0.2);
+    border-radius: 10px;
+}
+
+#um-role {
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2300ff87' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: calc(100% - 12px) center;
+    padding-right: 35px;
+    appearance: none;
+}
+
+.input-group-styled input:focus, 
+.input-group-styled select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 10px rgba(0, 255, 133, 0.1);
+    outline: none;
+}
+
 .goal-delete:hover {
     transform: scale(1.2);
 }
