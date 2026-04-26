@@ -1,4 +1,4 @@
-import { supabase, supabaseUrl, anonKey } from './supabase.js'
+import { supabase } from './supabase.js'
 
 // --- AUTH & SESSION ---
 let session = null;
@@ -917,7 +917,6 @@ function setupEventListeners() {
         'logoutVisitorBtn': () => logout(),
         'openSeasonManagerBtn': () => openSeasonManager(),
         'exportDataBtn': () => exportData(),
-        'openUserMgmtBtn': () => { renderIdManager(); toggleModal('id-manager-modal', true); },
         'closePlayerStudioBtn': () => toggleModal('player-studio-modal', false),
         'savePlayerBtn': () => handleSavePlayer(),
         'closeMatchStudioBtn': () => toggleModal('match-studio-modal', false),
@@ -927,9 +926,6 @@ function setupEventListeners() {
         'closePlayerViewBtn': () => toggleModal('player-modal', false),
         'closeAwardStudioBtn': () => toggleModal('award-studio-modal', false),
         'saveAwardBtn': () => handleSaveAward(),
-        'closeUserMgmtBtn': () => toggleModal('id-manager-modal', false),
-        'createUserBtn': () => createUser(),
-        'deleteAllUsersBtn': () => deleteAllUsers(),
         'closeSeasonManagerBtn': () => toggleModal('season-manager-modal', false),
         'createSeasonBtn': () => addSeasonFromManager(),
         'cancelConfirmBtn': () => closeConfirmModal(),
@@ -1061,22 +1057,6 @@ function setupEventListeners() {
             return;
         }
 
-        // User Management Actions
-        const togUser = target.closest('.action-toggle-user-card');
-        if (togUser) {
-            toggleUserCard(togUser.dataset.index);
-            return;
-        }
-        const updUserPwd = target.closest('.action-update-user-password');
-        if (updUserPwd) {
-            updateUserPassword(updUserPwd.dataset.id, updUserPwd.dataset.index);
-            return;
-        }
-        const delUserBtn = target.closest('.action-delete-user');
-        if (delUserBtn) {
-            deleteUser(delUserBtn.dataset.id);
-            return;
-        }
     });
 
     // Handle Input/Change Listeners
@@ -1745,201 +1725,6 @@ function importData(event) {
 
         reader.readAsText(file);
     });
-}
-
-// ===== USER MANAGEMENT (SUPABASE) =====
-
-async function getUsers() {
-    const { data, error } = await supabase.from('profiles').select('*');
-    if (error) console.error("Error fetching users:", error);
-    return data || [];
-}
-
-async function createUser() {
-    if (userRole !== "admin") return;
-    const email = document.getElementById('uc-username').value.trim();
-    const password = document.getElementById('uc-password').value.trim();
-    const role = document.getElementById('uc-role').value;
-
-    if (!email || !password) {
-        showAlertModal("Enter email and password");
-        return;
-    }
-
-    showAlertModal("Creating account...");
-
-    try {
-        const functionUrl = `${supabaseUrl}/functions/v1/create-user`;
-        console.log("Calling Edge Function:", functionUrl);
-
-        const response = await fetch(functionUrl, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'apiKey': anonKey,
-                'Authorization': `Bearer ${session.access_token}`
-            },
-            body: JSON.stringify({
-                email,
-                password,
-                role
-            })
-        });
-
-        const text = await response.text();
-        console.log("RAW RESPONSE (Create User):", text);
-
-        let result;
-        try {
-            result = JSON.parse(text);
-        } catch (e) {
-            console.error("JSON Parse Error (Create User):", e);
-            throw new Error(`Invalid server response (Status: ${response.status}). Expected JSON but got: ${text.substring(0, 100)}...`);
-        }
-
-        if (!response.ok) throw new Error(result.error || "Failed to create user");
-
-        showAlertModal("User account created successfully!");
-        document.getElementById('uc-username').value = "";
-        document.getElementById('uc-password').value = "";
-        document.getElementById('uc-role').value = "visitor";
-        await renderIdManager();
-    } catch (error) {
-        showAlertModal("Error creating user: " + error.message);
-    }
-}
-
-async function renderIdManager() {
-    const list = document.getElementById('id-list');
-    if (!list) return;
-
-    const users = await getUsers();
-
-    list.innerHTML = users.map((u, i) => `
-    <div class="glass-card" style="padding:12px; display:flex; flex-direction:column; gap:8px">
-        <div class="action-toggle-user-card" data-index="${i}" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer">
-            <div>
-                <span class="accent-text" style="font-weight:bold">${u.username}</span>
-                <span style="font-size:0.7rem; color:var(--text-dim); margin-left:8px">${(u.role || 'visitor').toUpperCase()}</span>
-            </div>
-            <i class="fas fa-chevron-down" id="arrow-${i}" style="font-size:0.8rem; opacity:0.5; transition:0.3s"></i>
-        </div>
-
-        <div id="user-body-${i}" style="display:none; flex-direction:column; gap:12px; margin-top:8px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.05)">
-            <div style="display:flex; flex-direction:column; gap:5px">
-                <label style="font-size:0.7rem; opacity:0.6">NEW PASSWORD</label>
-                <input type="password" id="pwd-${i}" class="input-modern" placeholder="Update password" style="margin:0; padding:8px;">
-            </div>
-            <div style="display:flex; gap:10px">
-                <button class="btn-cyan action-update-user-password" data-id="${u.id}" data-index="${i}" style="flex:2">Update</button>
-                <button class="btn-danger action-delete-user" data-id="${u.id}" style="flex:1">Delete</button>
-            </div>
-        </div>
-    </div>
-    `).join('');
-}
-
-function toggleUserCard(index) {
-    const body = document.getElementById(`user-body-${index}`);
-    const arrow = document.getElementById(`arrow-${index}`);
-
-    if (!body) return;
-
-    const isOpen = body.style.display === "flex";
-
-    body.style.display = isOpen ? "none" : "flex";
-    arrow.style.transform = isOpen ? "rotate(0deg)" : "rotate(180deg)";
-}
-
-async function updateUserPassword(id, index) {
-    if (userRole !== "admin") return;
-    const newPass = document.getElementById(`pwd-${index}`).value.trim();
-
-    if (!newPass) {
-        showAlertModal("Password cannot be empty");
-        return;
-    }
-
-    try {
-        const functionUrl = `${supabaseUrl}/functions/v1/update-user-password`;
-        console.log("Calling Edge Function:", functionUrl);
-
-        const response = await fetch(functionUrl, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'apiKey': anonKey,
-                'Authorization': `Bearer ${session.access_token}`
-            },
-            body: JSON.stringify({
-                userId: id,
-                newPassword: newPass
-            })
-        });
-
-        const text = await response.text();
-        console.log("RAW RESPONSE (Update Pwd):", text);
-
-        let result;
-        try {
-            result = JSON.parse(text);
-        } catch (e) {
-            console.error("JSON Parse Error (Update Pwd):", e);
-            throw new Error(`Invalid server response (Status: ${response.status})`);
-        }
-
-        if (!response.ok) throw new Error(result.error);
-
-        showAlertModal("Password updated successfully!");
-        document.getElementById(`pwd-${index}`).value = "";
-    } catch (err) {
-        showAlertModal("Error updating password: " + err.message);
-    }
-}
-
-async function deleteUser(id) {
-    if (userRole !== "admin") return;
-    openConfirmModal("Delete this user? This cannot be undone.", async () => {
-        try {
-            const functionUrl = `${supabaseUrl}/functions/v1/delete-user`;
-            console.log("Calling Edge Function:", functionUrl);
-
-            const response = await fetch(functionUrl, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'apiKey': anonKey,
-                    'Authorization': `Bearer ${session.access_token}`
-                },
-                body: JSON.stringify({
-                    userId: id
-                })
-            });
-
-            const text = await response.text();
-            console.log("RAW RESPONSE (Delete):", text);
-
-            let result;
-            try {
-                result = JSON.parse(text);
-            } catch (e) {
-                console.error("JSON Parse Error (Delete):", e);
-                throw new Error(`Invalid server response (Status: ${response.status})`);
-            }
-
-            if (!response.ok) throw new Error(result.error);
-
-            showAlertModal("User deleted successfully");
-            await renderIdManager();
-        } catch (err) {
-            showAlertModal("Error deleting user: " + err.message);
-        }
-    }, "delete");
-}
-
-async function deleteAllUsers() {
-    if (userRole !== "admin") return;
-    showAlertModal("Batch deletion currently disabled for safety. Delete users individually.");
 }
 
 function toggleStudioSection(headerEl) {

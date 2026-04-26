@@ -160,20 +160,6 @@
                         </div>
                     </div>
 
-                    <!-- ACCOUNT SECTION -->
-                    <div class="settings-group admin-only">
-                        <div class="settings-card clickable-card" id="openUserMgmtBtn">
-                            <div class="settings-title">
-                                <i class="fas fa-user-shield"></i> User Management
-                            </div>
-                            <p class="settings-desc">Manage system users, passwords, and access permissions.</p>
-                            <div class="settings-actions" style="margin-top: auto;">
-                                <button class="btn-outline w-100">
-                                    Manage User IDs <i class="fas fa-chevron-right" style="margin-left: 5px;"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
 
                     <!-- VISITOR LOGOUT (Shown only to non-admins) -->
                     <div class="settings-group visitor-only">
@@ -409,48 +395,6 @@
 
 </body>
 
-<!-- MODAL: ID MANAGER -->
-<div id="id-manager-modal" class="modal">
-    <div class="modal-content studio-large glass-card" style="max-width:650px">
-        <span class="close-btn" id="closeUserMgmtBtn">&times;</span>
-
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px">
-            <h2 style="margin:0">ID Manager</h2>
-            <span style="font-size:0.8rem; color:var(--text-dim)">Manage Users</span>
-        </div>
-
-        <!-- 🔥 CREATE USER INLINE -->
-        <div class="glass-card" style="padding:15px; margin-bottom:20px">
-            <h4 style="margin-bottom:10px">Create New ID</h4>
-
-            <div style="display:flex; gap:10px; flex-wrap:wrap">
-                <input type="email" id="uc-username" placeholder="User Email" style="flex:1">
-                <input type="password" id="uc-password" placeholder="Password" style="flex:1">
-                <select id="uc-role" style="flex:1">
-                    <option value="admin">Admin</option>
-                    <option value="editor">Editor</option>
-                    <option value="viewer">Viewer</option>
-                </select>
-            </div>
-
-            <button class="btn-neon w-100" id="createUserBtn" style="margin-top:10px">
-                + Create User
-            </button>
-        </div>
-
-        <!-- USERS LIST -->
-        <div class="form-section">
-            <h4 style="margin-bottom:10px">All Users</h4>
-            <div id="id-list" style="display:flex; flex-direction:column; gap:12px;"></div>
-        </div>
-
-        <div class="form-section" style="margin-top:20px">
-            <button class="btn-danger w-100" id="deleteAllUsersBtn">
-                Delete All Users
-            </button>
-        </div>
-    </div>
-</div>
 
 <!-- MODAL: SEASON MANAGER -->
 <div id="season-manager-modal" class="modal">
