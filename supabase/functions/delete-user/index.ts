@@ -8,7 +8,7 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // 1. Handle OPTIONS request for CORS preflight
+  // ✅ HANDLE PREFLIGHT
   if (req.method === 'OPTIONS') {
     return new Response('ok', { 
       status: 200,

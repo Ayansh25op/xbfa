@@ -22,7 +22,6 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Verify the caller is an admin
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(JSON.stringify({ error: 'No authorization header' }), {
@@ -32,57 +31,34 @@ serve(async (req) => {
     }
 
     const token = authHeader.replace('Bearer ', '')
-    const { data: { user: callerUser }, error: verifyError } = await supabaseClient.auth.getUser(token)
+    const { data: { user: adminUser }, error: verifyError } = await supabaseClient.auth.getUser(token)
     
-    if (verifyError || !callerUser) {
+    if (verifyError || !adminUser) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    // Check role from user_roles table
-    const { data: roleData } = await supabaseClient
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', callerUser.id)
-      .single()
-
-    const isAdmin = callerUser.email === 'admin@xbfa.com' || (roleData && roleData.role === 'admin')
+    const { data: roleData } = await supabaseClient.from('user_roles').select('role').eq('user_id', adminUser.id).single()
+    const isAdmin = adminUser.email === 'admin@xbfa.com' || (roleData && roleData.role === 'admin')
 
     if (!isAdmin) {
-      return new Response(JSON.stringify({ error: 'Forbidden: Admin access required' }), {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const { email, password, role } = await req.json()
+    const { userId, newPassword } = await req.json()
 
-    // 1. Create User in Auth
-    const { data: userData, error: createError } = await supabaseClient.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
+    const { error: updateError } = await supabaseClient.auth.admin.updateUserById(userId, {
+      password: newPassword
     })
 
-    if (createError) throw createError
+    if (updateError) throw updateError
 
-    // 2. Set Role in user_roles
-    const { error: roleError } = await supabaseClient
-      .from('user_roles')
-      .upsert({ user_id: userData.user.id, role })
-
-    if (roleError) throw roleError
-
-    // 3. Update Profile
-    const { error: profileError } = await supabaseClient
-      .from('profiles')
-      .upsert({ id: userData.user.id, username: email, role })
-
-    if (profileError) throw profileError
-
-    return new Response(JSON.stringify({ message: 'User created successfully', user: userData.user }), {
+    return new Response(JSON.stringify({ message: 'Password updated successfully' }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
