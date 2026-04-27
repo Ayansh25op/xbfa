@@ -1781,7 +1781,7 @@ async function loadUsers() {
         list.innerHTML = users.map(u => `
             <div class="glass-card" style="padding: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.05);">
                 <div style="display: flex; flex-direction: column; gap: 2px;">
-                    <span style="font-weight: 500; font-size: 0.9rem;">${u.user_id}</span>
+                    <span style="font-weight: 500; font-size: 0.9rem;">${u.email || u.user_id}</span>
                     <span class="accent-text" style="font-size: 0.7rem; font-weight: bold; text-transform: uppercase;">${u.role}</span>
                 </div>
                 <button class="btn-danger action-delete-user" data-id="${u.user_id}" style="padding: 6px 10px; font-size: 0.7rem;">

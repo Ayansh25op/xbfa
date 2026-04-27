@@ -1,8 +1,17 @@
 -- 1. Create a table for user roles
 CREATE TABLE IF NOT EXISTS public.user_roles (
   user_id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
+  email TEXT,
   role TEXT NOT NULL DEFAULT 'visitor'
 );
+
+-- Ensure email column exists if table was created earlier
+DO $$ 
+BEGIN 
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='user_roles' AND column_name='email') THEN
+        ALTER TABLE public.user_roles ADD COLUMN email TEXT;
+    END IF;
+END $$;
 
 -- 2. Create a profiles table for user management
 CREATE TABLE IF NOT EXISTS public.profiles (
@@ -175,8 +184,8 @@ SECURITY DEFINER SET search_path = public
 AS $$
 BEGIN
   -- Insert into user_roles
-  INSERT INTO public.user_roles (user_id, role)
-  VALUES (new.id, 'visitor');
+  INSERT INTO public.user_roles (user_id, email, role)
+  VALUES (new.id, new.email, 'visitor');
 
   -- Insert into profiles
   INSERT INTO public.profiles (id, username, role)

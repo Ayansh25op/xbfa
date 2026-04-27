@@ -71,7 +71,7 @@ serve(async (req) => {
     // 2. Set Role in user_roles
     const { error: roleError } = await supabaseClient
       .from('user_roles')
-      .upsert({ user_id: userData.user.id, role })
+      .upsert({ user_id: userData.user.id, email: email, role })
 
     if (roleError) throw roleError
 
