@@ -1507,16 +1507,42 @@ function openSeasonManager() {
     toggleModal('season-manager-modal', true);
 }
 
-function renderSeasonManager() {
+async function renderSeasonManager() {
     const list = document.getElementById('sm-seasons-list');
     if (!list) return;
+
+    list.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; opacity: 0.5;">Loading stats...</div>`;
+
+    // Fetch stats for all seasons in parallel for efficiency
+    const seasonStats = await Promise.all(seasons.map(async (s) => {
+        if (!s) return null;
+        
+        // Count players
+        const { count: pCount } = await supabase.from('players').select('*', { count: 'exact', head: true }).eq('season_id', s.id);
+        
+        // Count matches and goals
+        const { data: mData } = await supabase.from('matches').select('score_a, score_b').eq('season_id', s.id);
+        
+        const mCount = mData ? mData.length : 0;
+        const gCount = mData ? mData.reduce((acc, m) => acc + (m.score_a || 0) + (m.score_b || 0), 0) : 0;
+        
+        return {
+            id: s.id,
+            players: pCount || 0,
+            matches: mCount || 0,
+            goals: gCount || 0
+        };
+    }));
+
+    const statsMap = {};
+    seasonStats.forEach(stat => {
+        if (stat) statsMap[stat.id] = stat;
+    });
 
     list.innerHTML = seasons.map(s => {
         if (!s) return "";
         const isActive = s.id == currentSeasonId;
-        const playerCount = (s.players || []).length;
-        const matchCount = (s.matches || []).length;
-        const goalCount = (s.matches || []).reduce((acc, m) => acc + (m.score_a || 0) + (m.score_b || 0), 0);
+        const stats = statsMap[s.id] || { players: 0, matches: 0, goals: 0 };
 
         return `
         <div class="season-card-modern ${isActive ? 'active' : ''}" id="season-card-${s.id}">
@@ -1534,15 +1560,15 @@ function renderSeasonManager() {
             <div class="season-stats-row">
                 <div class="sm-stat">
                     <span class="sm-stat-label">Players</span>
-                    <span class="sm-stat-val">${playerCount}</span>
+                    <span class="sm-stat-val">${stats.players}</span>
                 </div>
                 <div class="sm-stat">
                     <span class="sm-stat-label">Matches</span>
-                    <span class="sm-stat-val">${matchCount}</span>
+                    <span class="sm-stat-val">${stats.matches}</span>
                 </div>
                 <div class="sm-stat">
                     <span class="sm-stat-label">Goals</span>
-                    <span class="sm-stat-val">${goalCount}</span>
+                    <span class="sm-stat-val">${stats.goals}</span>
                 </div>
             </div>
 
@@ -1564,7 +1590,6 @@ function renderSeasonManager() {
                 ` : ''}
             </div>
 
-            <!-- UI CONFIRM DELETE -->
             <div id="confirm-delete-${s.id}" class="confirm-delete-box" style="display:none">
                 <p>Delete this season and all its data permanently?</p>
                 <div style="display:flex; gap:10px; width:100%">
@@ -1581,20 +1606,26 @@ function enableSeasonRename(id) {
     document.getElementById(`name-display-${id}`).style.display = 'none';
     document.getElementById(`name-edit-${id}`).style.display = 'block';
     const input = document.getElementById(`name-input-${id}`);
-    input.focus();
-    input.select();
+    if (input) {
+        input.focus();
+        input.select();
+    }
 }
 
-function saveSeasonRename(id) {
+async function saveSeasonRename(id) {
     const input = document.getElementById(`name-input-${id}`);
     const newName = input.value.trim();
     
     if (newName) {
-        const idx = seasons.findIndex(s => s.id === id);
-        if (idx !== -1) {
-            seasons[idx].name = newName;
-            saveSeasons();
+        try {
+            const { error } = await supabase.from('seasons').update({ name: newName }).eq('id', id);
+            if (error) throw error;
+            
+            await loadSeasons();
             updateSeasonSelector();
+        } catch (err) {
+            console.error("Season Rename Error:", err);
+            showAlertModal("Error renaming season: " + err.message);
         }
     }
     
