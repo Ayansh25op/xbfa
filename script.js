@@ -82,7 +82,12 @@ async function loadSeasons() {
 }
 
 async function loadPlayers() {
-    const { data, error } = await supabase.from('players').select('*');
+    if (!currentSeasonId) await loadSeasons();
+    const { data, error } = await supabase
+        .from('players')
+        .select('*')
+        .eq('season_id', currentSeasonId);
+    
     if (error) {
         console.error("Error loading players:", error);
         players = [];
@@ -96,10 +101,12 @@ async function loadPlayers() {
 }
 
 async function loadMatches() {
-    console.log("Loading matches from Supabase...");
+    if (!currentSeasonId) await loadSeasons();
+    console.log("Loading matches from Supabase for season:", currentSeasonId);
     const { data, error } = await supabase
         .from('matches')
-        .select('*, match_ratings(*), match_awards(*)');
+        .select('*, match_ratings(*), match_awards(*)')
+        .eq('season_id', currentSeasonId);
 
     if (error) {
         console.error("Error loading matches:", error);
@@ -129,6 +136,9 @@ async function savePlayerToDB(player) {
     if (!player) return;
     console.log("Saving player to DB:", player);
     const { id, ...playerData } = player;
+    
+    // Ensure season_id is included
+    playerData.season_id = currentSeasonId;
     
     if (id && String(id).length > 20) { // Check if it's a UUID
         const { error } = await supabase.from('players').update(playerData).eq('id', id);
@@ -1647,6 +1657,10 @@ async function switchSeason(id) {
     currentSeasonId = id;
     updateSeasonSelector();
     renderSeasonManager();
+    
+    // Force reload data for the new season
+    await loadPlayers();
+    await loadMatches();
     await renderAll();
 }
 

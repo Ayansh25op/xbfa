@@ -64,6 +64,20 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='players' AND column_name='latest_rating') THEN
         ALTER TABLE public.players ADD COLUMN latest_rating DECIMAL(3,1);
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='players' AND column_name='season_id') THEN
+        ALTER TABLE public.players ADD COLUMN season_id UUID REFERENCES public.seasons(id) ON DELETE CASCADE;
+    END IF;
+    
+    -- Backfill existing data
+    DECLARE 
+        first_season_id UUID;
+    BEGIN 
+        SELECT id INTO first_season_id FROM public.seasons ORDER BY created_at LIMIT 1;
+        IF first_season_id IS NOT NULL THEN
+            UPDATE public.players SET season_id = first_season_id WHERE season_id IS NULL;
+            UPDATE public.matches SET season_id = first_season_id WHERE season_id IS NULL;
+        END IF;
+    END;
 END $$;
 
 CREATE TABLE IF NOT EXISTS public.matches (
