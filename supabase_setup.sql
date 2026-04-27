@@ -164,6 +164,9 @@ DROP POLICY IF EXISTS "Allow admins to manage all profiles" ON public.profiles;
 CREATE POLICY "Allow users to read profiles" ON public.profiles FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Allow admins to manage all profiles" ON public.profiles FOR ALL TO authenticated USING ((EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role = 'admin')) OR (SELECT auth.jwt() ->> 'email') = 'admin@xbfa.com');
 
+DROP POLICY IF EXISTS "Allow select for everyone" ON public.user_roles;
+CREATE POLICY "Allow select for everyone" ON public.user_roles FOR SELECT TO public USING (true);
+
 -- 5. Trigger for new users
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger

@@ -1761,12 +1761,16 @@ async function loadUsers() {
 
     try {
         const { data: users, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .order('created_at', { ascending: false });
+            .from('user_roles')
+            .select('*');
 
-        if (error) throw error;
+        if (error) {
+            console.error("Error loading users:", error);
+            list.innerHTML = `<div style="text-align:center; padding:20px; color:var(--red);">Failed to load users.</div>`;
+            return;
+        }
 
+        console.log("Users:", users);
         countEl.innerText = `${users.length} Users`;
 
         if (users.length === 0) {
@@ -1777,10 +1781,10 @@ async function loadUsers() {
         list.innerHTML = users.map(u => `
             <div class="glass-card" style="padding: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.05);">
                 <div style="display: flex; flex-direction: column; gap: 2px;">
-                    <span style="font-weight: 500; font-size: 0.9rem;">${u.username}</span>
+                    <span style="font-weight: 500; font-size: 0.9rem;">${u.user_id}</span>
                     <span class="accent-text" style="font-size: 0.7rem; font-weight: bold; text-transform: uppercase;">${u.role}</span>
                 </div>
-                <button class="btn-danger action-delete-user" data-id="${u.id}" style="padding: 6px 10px; font-size: 0.7rem;">
+                <button class="btn-danger action-delete-user" data-id="${u.user_id}" style="padding: 6px 10px; font-size: 0.7rem;">
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
