@@ -1,5 +1,12 @@
 import { supabase, supabaseUrl, anonKey } from './supabase.js'
 
+// --- GLOBAL STATE ---
+let currentSeasonId = null;
+let currentSeasonName = "";
+let seasons = [];
+let players = [];
+let matches = [];
+
 // --- AUTH & SESSION ---
 let session = null;
 let userRole = "visitor";
@@ -42,11 +49,7 @@ async function logout() {
 let user = null;
 
 // Centralized Data Storage
-let seasons = [];
-let players = [];
-let matches = [];
-let currentSeasonId = null;
-let currentSeasonName = "";
+// (Variables moved to top for global availability)
 
 // Removed redundant if(!user) redirect as checkAuth handles it
 
@@ -82,7 +85,11 @@ async function loadSeasons() {
 }
 
 async function loadPlayers() {
-    if (!currentSeasonId) await loadSeasons();
+    if (!currentSeasonId) {
+        console.error("No season selected (loadPlayers)");
+        await loadSeasons();
+        if (!currentSeasonId) return;
+    }
     const { data, error } = await supabase
         .from('players')
         .select('*')
@@ -101,7 +108,11 @@ async function loadPlayers() {
 }
 
 async function loadMatches() {
-    if (!currentSeasonId) await loadSeasons();
+    if (!currentSeasonId) {
+        console.error("No season selected (loadMatches)");
+        await loadSeasons();
+        if (!currentSeasonId) return;
+    }
     console.log("Loading matches from Supabase for season:", currentSeasonId);
     const { data, error } = await supabase
         .from('matches')
@@ -134,6 +145,11 @@ async function loadMatches() {
 
 async function savePlayerToDB(player) {
     if (!player) return;
+    if (!currentSeasonId) {
+        console.error("No season selected (savePlayer)");
+        showAlertModal("Please select a season first.");
+        return;
+    }
     console.log("Saving player to DB:", player);
     const { id, ...playerData } = player;
     
@@ -166,6 +182,11 @@ async function deletePlayerFromDB(id) {
 
 async function saveMatchToDB(match) {
     if (!match) return;
+    if (!currentSeasonId) {
+        console.error("No season selected (saveMatch)");
+        showAlertModal("Please select a season first.");
+        return;
+    }
     
     // EXPLICITLY build the object for public.matches table to avoid schema mismatch
     // DO NOT use spread operators here
