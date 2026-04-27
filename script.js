@@ -411,12 +411,18 @@ async function renderAll() {
 
 // FIX 1: DASHBOARD STATS (Structured HTML Blocks)
 async function renderDashboard() {
-    const totalGoals = players.reduce((s,p) => s + (p.goals || 0), 0);
+    if (!currentSeasonId) return;
+
+    // Filter players and matches specifically for this season to be 100% sure
+    const seasonPlayers = players.filter(p => p.season_id === currentSeasonId);
+    const seasonMatches = matches.filter(m => m.season_id === currentSeasonId);
+
+    const totalGoals = seasonPlayers.reduce((s,p) => s + (p.goals || 0), 0);
     
     document.getElementById('dashboard-stats').innerHTML = `
         <div class="summary-card">
             <span class="label">Matches Played</span>
-            <span class="value">${matches.length}</span>
+            <span class="value">${seasonMatches.length}</span>
         </div>
         <div class="summary-card">
             <span class="label">Total Squad Goals</span>
@@ -424,35 +430,47 @@ async function renderDashboard() {
         </div>
         <div class="summary-card">
             <span class="label">Active Players</span>
-            <span class="value">${players.length}</span>
+            <span class="value">${seasonPlayers.length}</span>
         </div>
     `;
 
-// --- MVP FIX (SEASON BASED) ---
-const { data: mvpAward, error } = await supabase.from('awards').select('*').eq('season_id', currentSeasonId).ilike('name', '%MVP%').single();
-const mvpId = mvpAward ? mvpAward.player_id : null;
+    // --- MVP FIX (SEASON BASED) ---
+    const { data: mvpAward, error } = await supabase
+        .from('awards')
+        .select('*')
+        .eq('season_id', currentSeasonId)
+        .ilike('name', '%MVP%')
+        .single();
 
-let star = null;
+    const mvpId = mvpAward ? mvpAward.player_id : null;
 
-// If MVP award is found → use it
-if (mvpId) {
-    star = players.find(p => p && String(p.id) === String(mvpId));
-} 
-// Otherwise fallback to top scorer
-else {
-    star = [...players].sort((a,b) => (b && a ? (b.goals||0) - (a.goals||0) : 0))[0];
-}
+    let star = null;
 
-if(star) {
-    document.getElementById('dash-mvp-card').innerHTML = createCardHTML(star);
-}
-    const latest = matches[matches.length - 1];
+    // If MVP award is found → use it
+    if (mvpId) {
+        star = seasonPlayers.find(p => p && String(p.id) === String(mvpId));
+    } 
+    // Otherwise fallback to top scorer
+    else {
+        star = [...seasonPlayers].sort((a,b) => (b && a ? (b.goals||0) - (a.goals||0) : 0))[0];
+    }
+
+    if(star) {
+        document.getElementById('dash-mvp-card').innerHTML = createCardHTML(star);
+    } else {
+        document.getElementById('dash-mvp-card').innerHTML = `<div style="padding: 20px; text-align: center; opacity: 0.5;">No MVP awarded yet</div>`;
+    }
+
+    // Latest Match sorted by date
+    const latest = [...seasonMatches].sort((a, b) => new Date(b.date) - new Date(a.date))[0];
     if(latest) {
         document.getElementById('latest-match-hero').innerHTML = `
             <div class="match-card action-view-match" style="width:100%" data-id="${latest.id}">
                 <div class="match-score">${latest.score_a} - ${latest.score_b}</div>
                 <div class="match-meta">${latest.title} • ${latest.date}</div>
             </div>`;
+    } else {
+        document.getElementById('latest-match-hero').innerHTML = `<div style="padding: 20px; text-align: center; opacity: 0.5;">No matches recorded this season</div>`;
     }
 }
 
