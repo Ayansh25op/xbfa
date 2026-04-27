@@ -11,6 +11,13 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='user_roles' AND column_name='email') THEN
         ALTER TABLE public.user_roles ADD COLUMN email TEXT;
     END IF;
+    
+    -- Backfill emails from auth.users if available
+    -- Note: This requires access to auth schema which the service role has
+    UPDATE public.user_roles ur
+    SET email = au.email
+    FROM auth.users au
+    WHERE ur.user_id = au.id AND ur.email IS NULL;
 END $$;
 
 -- 2. Create a profiles table for user management
