@@ -176,6 +176,9 @@ CREATE POLICY "Allow admins to manage all profiles" ON public.profiles FOR ALL T
 DROP POLICY IF EXISTS "Allow select for everyone" ON public.user_roles;
 CREATE POLICY "Allow select for everyone" ON public.user_roles FOR SELECT TO public USING (true);
 
+DROP POLICY IF EXISTS "allow delete" ON public.user_roles;
+CREATE POLICY "allow delete" ON public.user_roles FOR DELETE USING (true);
+
 -- 5. Trigger for new users
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger

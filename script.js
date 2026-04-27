@@ -1858,28 +1858,14 @@ async function deleteUser(id) {
     openConfirmModal("Are you sure you want to delete this user? This action is irreversible.", async () => {
         showAlertModal("Deleting user...");
         try {
-            const functionUrl = `${supabaseUrl}/functions/v1/delete-user`;
-            const response = await fetch(functionUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.access_token}`,
-                    'apikey': anonKey
-                },
-                body: JSON.stringify({ userId: id })
-            });
+            const { error } = await supabase
+                .from("user_roles")
+                .delete()
+                .eq("user_id", id);
 
-            const text = await response.text();
-            let result;
-            try {
-                result = JSON.parse(text);
-            } catch (e) {
-                console.error("Non-JSON response:", text);
-                throw new Error("Server returned an invalid response format.");
-            }
-
-            if (!response.ok) {
-                throw new Error(result.error || "Failed to delete user.");
+            if (error) {
+                console.error("Delete error:", error);
+                throw error;
             }
 
             showAlertModal("User deleted successfully.");
@@ -1887,7 +1873,7 @@ async function deleteUser(id) {
 
         } catch (err) {
             console.error("Delete user error:", err);
-            showAlertModal("Error: " + err.message);
+            showAlertModal("Error: Failed to delete user");
         }
     });
 }
