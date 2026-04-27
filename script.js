@@ -790,8 +790,17 @@ function renderLeaderboards() {
 // --- MODAL & DATA UTILS ---
 function toggleModal(id, show) {
     const el = document.getElementById(id);
-    if(show) el.classList.add('show-flex');
-    else el.classList.remove('show-flex');
+    if(show) {
+        el.classList.add('show-flex');
+        document.body.style.overflow = 'hidden';
+    } else {
+        el.classList.remove('show-flex');
+        // Check if other modals are still open before restoring scroll
+        const openModals = document.querySelectorAll('.modal.show-flex');
+        if (openModals.length === 0) {
+            document.body.style.overflow = 'auto';
+        }
+    }
 }
 
 
