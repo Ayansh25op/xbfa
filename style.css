@@ -163,7 +163,7 @@ h1 {
     .player-card .player-img { width: 100px; height: 100px; margin-top: 30px; }
     .player-card .rating { font-size: 1.8rem; }
     .player-card .name { font-size: 0.9rem; }
-    .card-number { font-size: 80px; bottom: 5px; right: 5px; opacity: 0.15; }
+    .card-number { font-size: 80px; bottom: 5px; right: 5px; opacity: 0.18; }
     .card-rating-badge { bottom: 10px; left: 10px; padding: 3px 8px; font-size: 0.7rem; }
     
     .settings-grid { grid-template-columns: 1fr; }
@@ -283,12 +283,16 @@ h1 {
     font-size: 160px;
     font-weight: 900;
     line-height: 1;
-    z-index: 1;
+    z-index: 0;
     pointer-events: none;
     transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
     font-family: 'Impact', 'Inter', sans-serif;
     font-style: italic;
-    opacity: 0.1;
+    opacity: 0.18;
+    background: linear-gradient(135deg, rgba(0,255,156,0.25), rgba(0,255,156,0.05));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: blur(0.5px);
     -webkit-text-stroke: 1.5px rgba(255,255,255,0.05);
     transform: rotate(-10deg) skew(-5deg);
     user-select: none;
@@ -296,9 +300,9 @@ h1 {
 }
 
 .player-card:hover .card-number {
-    opacity: 0.2;
+    opacity: 0.28;
     transform: rotate(0deg) skew(0deg) scale(1.1) translate(-10px, -10px);
-    filter: drop-shadow(0 0 20px currentColor);
+    filter: blur(0px) drop-shadow(0 0 20px rgba(0, 255, 156, 0.4));
 }
 
 .card-rating-badge {
