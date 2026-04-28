@@ -414,31 +414,31 @@ window.openSettings = () => navigateTo('settings');
 async function renderAdminDashboard() {
     if (!currentPage || currentPage !== 'settings') return;
 
-    // 1. Data Stats
-    document.getElementById('admin-total-matches').innerText = matches.length;
-    document.getElementById('admin-total-players').innerText = players.length;
-    
-    let totalGoals = 0;
-    matches.forEach(m => totalGoals += (m.score_a || 0) + (m.score_b || 0));
-    document.getElementById('admin-total-goals').innerText = totalGoals;
-
-    // 2. Best Player Mini Card
-    const mvpRow = document.getElementById('admin-mvp-name');
-    if (players.length > 0) {
-        const sorted = [...players].sort((a,b) => (b.avg_rating || 0) - (a.avg_rating || 0));
-        mvpRow.innerText = sorted[0].name;
-    } else {
-        mvpRow.innerText = "No Records";
-    }
-
-    // 3. Debug Panel
-    const debugSeason = document.getElementById('debug-season-id');
-    if (debugSeason) debugSeason.innerText = currentSeasonId || "No Active Season";
-
-    // 4. Update User Stats if admin
+    // Only render advanced stats if allowed
     if (hasPermission('adminOnly')) {
+        // 1. Data Stats
+        document.getElementById('admin-total-matches').innerText = matches.length;
+        document.getElementById('admin-total-players').innerText = players.length;
+        
+        let totalGoals = 0;
+        matches.forEach(m => totalGoals += (m.score_a || 0) + (m.score_b || 0));
+        document.getElementById('admin-total-goals').innerText = totalGoals;
+
+        // 2. Best Player Mini Card
+        const mvpRow = document.getElementById('admin-mvp-name');
+        if (players.length > 0) {
+            const sorted = [...players].sort((a,b) => (b.avg_rating || 0) - (a.avg_rating || 0));
+            mvpRow.innerText = sorted[0].name;
+        } else {
+            mvpRow.innerText = "No Records";
+        }
+
         updateAdminUserStats();
     }
+
+    // 3. Debug Panel (always updated if element exists, visibility handled by CSS classes)
+    const debugSeason = document.getElementById('debug-season-id');
+    if (debugSeason) debugSeason.innerText = currentSeasonId || "No Active Season";
 }
 
 async function updateAdminUserStats() {
