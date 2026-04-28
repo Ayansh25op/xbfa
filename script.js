@@ -433,6 +433,12 @@ async function renderAdminDashboard() {
         el.style.display = isAdmin ? 'flex' : 'none';
     });
 
+    // Handle Season Manager Visibility (Restricted to admin and editor)
+    const canManageSeasons = hasPermission('manageSeasons');
+    document.querySelectorAll('.permission-manageSeasons').forEach(el => {
+        el.style.display = canManageSeasons ? 'flex' : 'none';
+    });
+
     // Only render advanced stats if allowed
     if (isAdmin) {
         // 1. Data Stats
@@ -525,20 +531,6 @@ function toggleDebugMode(enabled) {
     console.log("DEBUG MODE:", enabled ? "ENABLED" : "DISABLED");
 }
 
-// --- PASSWORD UI TOOL ---
-function togglePasswordVisibility(inputId, iconEl) {
-    const input = document.getElementById(inputId);
-    if (!input) return;
-    if (input.type === 'password') {
-        input.type = 'text';
-        iconEl.classList.remove('fa-eye');
-        iconEl.classList.add('fa-eye-slash');
-    } else {
-        input.type = 'password';
-        iconEl.classList.remove('fa-eye-slash');
-        iconEl.classList.add('fa-eye');
-    }
-}
 async function clearCollection(tableName, label) {
     if (!hasPermission('adminOnly')) return;
     showConfirmModal(`PERMANENTLY DELETE ALL ${label.toUpperCase()} in this season? This cannot be undone.`, async () => {
