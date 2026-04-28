@@ -7,6 +7,22 @@ let seasons = [];
 let players = [];
 let matches = [];
 
+const ROLE_PERMISSIONS = {
+    admin: { all: true },
+    editor: { managePlayers: true, manageMatches: true, manageAwards: true, manageSeasons: true },
+    match_rater: { editMatch: true, deleteMatch: true, manageAwards: true },
+    journalist: { manageAwards: true, readMatches: true },
+    viewer: { readOnly: true },
+    visitor: { readOnly: true }
+};
+
+function hasPermission(permission) {
+    if (!userRole) return false;
+    const perms = ROLE_PERMISSIONS[userRole] || ROLE_PERMISSIONS.visitor;
+    if (perms.all) return true;
+    return !!perms[permission];
+}
+
 // --- AUTH & SESSION ---
 let session = null;
 let userRole = "visitor";
@@ -381,31 +397,38 @@ async function renderAll() {
     await renderAwards();
 
     // UI protection: keep settings visible but hide admin-only controls
-    const isAdmin = userRole === "admin";
-
+    
     // Update User Info in Settings
     const userDisplay = document.querySelector('.settings-group.visitor-only .settings-desc');
-    if (userDisplay && session) {
-        userDisplay.innerHTML = `Signed in as <span class="accent-text">${session.user.email}</span><br>Role: ${(userRole || "").toUpperCase()}`;
-    }
-    
     const adminUserDisplay = document.querySelector('.settings-group.admin-only .settings-desc');
-    if (adminUserDisplay && session && isAdmin) {
-        adminUserDisplay.innerHTML = `Control core system. Logged in as <span class="accent-text">${session.user.email}</span>`;
+    
+    if (session) {
+        const displayHtml = `Signed in as <span class="accent-text">${session.user.email}</span><br>Role: ${(userRole || "viewer").toUpperCase()}`;
+        if (userDisplay) userDisplay.innerHTML = displayHtml;
+        if (adminUserDisplay && hasPermission('all')) {
+            adminUserDisplay.innerHTML = `Control core system. Logged in as <span class="accent-text">${session.user.email}</span>`;
+        }
     }
     
     // 1. Header / Common Buttons
     document.querySelectorAll('.header-actions .btn-neon').forEach(btn => {
-        btn.classList.toggle('hidden', !isAdmin);
+        // Toggle based on appropriate permissions
+        if (btn.innerText.toLowerCase().includes('player')) {
+            btn.classList.toggle('hidden', !hasPermission('managePlayers'));
+        } else if (btn.innerText.toLowerCase().includes('match')) {
+            btn.classList.toggle('hidden', !hasPermission('editMatch'));
+        } else if (btn.id === 'open-season-mgr') {
+            btn.classList.toggle('hidden', !hasPermission('manageSeasons'));
+        }
     });
 
     // 2. Global Role-Based Visibility
     document.querySelectorAll('.admin-only').forEach(el => {
-        el.classList.toggle('hidden', !isAdmin);
+        el.classList.toggle('hidden', !hasPermission('all'));
     });
 
-    document.querySelectorAll('.visitor-only').forEach(el => {
-        el.classList.toggle('hidden', isAdmin);
+    document.querySelectorAll('.editor-allowed').forEach(el => {
+        el.classList.toggle('hidden', !hasPermission('managePlayers'));
     });
 }
 
@@ -490,11 +513,12 @@ function renderMatches() {
                 <div class="match-score">${m.score_a} - ${m.score_b}</div>
                 <div class="match-meta">${m.title} • ${m.date}</div>
             </div>
-            ${userRole === "admin" ? `
+            ${hasPermission('editMatch') ? `
             <div style="position:absolute; top:10px; right:10px; display:flex; gap:8px">
+                ${hasPermission('deleteMatch') ? `
                 <button class="action-delete-match" data-id="${m.id}" style="background:none; border:none; color:#ff4d4d; cursor:pointer">
                     <i class="fas fa-trash"></i>
-                </button>
+                </button>` : ''}
                 <button class="action-edit-match" data-id="${m.id}" style="background:none; border:none; color:var(--accent); cursor:pointer">
                     <i class="fas fa-edit"></i>
                 </button>
@@ -614,8 +638,6 @@ function viewMatchDetail(id) {
 
 // FIX 4: AWARDS DISPLAY (Redesigned Modern Cards)
 async function renderAwards() {
-    const isAdmin = userRole === "admin";
-
     const container = document.getElementById('awards-display');
     if (!container) return;
 
@@ -641,7 +663,7 @@ async function renderAwards() {
 
         return `
         <div class="award-card-modern">
-            ${isAdmin ? `
+            ${hasPermission('manageAwards') ? `
             <div class="award-actions-overlay">
                 <button class="btn-award-action action-edit-award" data-id="${a.id}">
                     <i class="fas fa-edit"></i>
@@ -661,7 +683,10 @@ async function renderAwards() {
 }
 
 async function openAwardStudio(id = null) {
-    if (userRole !== "admin") return;
+    if (!hasPermission('manageAwards')) {
+        showAlertModal("Unauthorized: Journalist, Editor or Admin required.");
+        return;
+    }
     const f = document.getElementById('as-form');
     f.reset();
     document.getElementById('as-id').value = "";
@@ -685,8 +710,8 @@ async function openAwardStudio(id = null) {
 }
 
 async function handleSaveAward() {
-    if (userRole !== "admin") {
-        showAlertModal("Admin access required");
+    if (!hasPermission('manageAwards')) {
+        showAlertModal("Unauthorized: Journalist, Editor or Admin required.");
         return;
     }
 
@@ -720,7 +745,10 @@ async function handleSaveAward() {
 }
 
 async function deleteAward(id) {
-    if (userRole !== "admin") return;
+    if (!hasPermission('manageAwards')) {
+        showAlertModal("Unauthorized: Journalist, Editor or Admin required.");
+        return;
+    }
     openConfirmModal("Delete this award?", async () => {
         await supabase.from('awards').delete().eq('id', id);
         await renderAwards();
@@ -737,7 +765,7 @@ function createCardHTML(p) {
     const posClass = `pos-${(p.pos || 'ST').toLowerCase()}`;
     return `
         <div class="player-card">
-            ${userRole === "admin" ? `
+            ${hasPermission('managePlayers') ? `
             <div style="position:absolute; top:10px; right:10px; display:flex; gap:8px; z-index:10">
                 <button class="action-delete-player" data-id="${p.id}" style="background:none; border:none; color:#ff4d4d; cursor:pointer">
                     <i class="fas fa-trash"></i>
@@ -817,7 +845,10 @@ window.onclick = function(event) {
 };
 
 async function deletePlayer(id) {
-    if (userRole !== "admin") return;
+    if (!hasPermission('managePlayers')) {
+        showAlertModal("Unauthorized: Editor or Admin access required.");
+        return;
+    }
     openConfirmModal("Delete this player?", async () => {
         await deletePlayerFromDB(id);
         await renderAll();
@@ -910,7 +941,10 @@ function showPasswordError(msg) {
 
 
 async function resetSystem() {
-    if (userRole !== "admin") return;
+    if (!hasPermission('all')) {
+        showAlertModal("Unauthorized: Admin access required.");
+        return;
+    }
     openConfirmModal("Wipe all data?", async () => {
         // Drop all data using a non-existent filter to bypass row-level security if needed (though we'll use a better approach)
         await supabase.from('match_ratings').delete().neq('match_id', '00000000-0000-0000-0000-000000000000');
@@ -925,7 +959,10 @@ async function resetSystem() {
 
 // --- FORM HANDLING ---
 function openPlayerStudio(id = null) {
-    if (userRole !== "admin") return;
+    if (!hasPermission('managePlayers')) {
+        showAlertModal("Unauthorized: Editor or Admin access required.");
+        return;
+    }
     const f = document.getElementById('ps-form'); 
     f.reset(); 
     currentPhoto = "";
@@ -963,6 +1000,10 @@ function updateLivePreview() {
 }
 
 async function handleSavePlayer() {
+  if (!hasPermission('managePlayers')) {
+      showAlertModal("Unauthorized: Editor or Admin required.");
+      return;
+  }
   console.log("SAVE PLAYER TRIGGERED");
   
   const idInput = document.getElementById('f-id').value;
@@ -1136,6 +1177,13 @@ function setupEventListeners() {
         }
 
         // User Actions
+        const saveRole = target.closest('.action-save-role');
+        if (saveRole) {
+            const uid = saveRole.dataset.id;
+            const select = document.querySelector(`.role-select[data-id="${uid}"]`);
+            if (select) updateUserRole(uid, select.value);
+            return;
+        }
         const delUser = target.closest('.action-delete-user');
         if (delUser) {
             deleteUser(delUser.dataset.id);
@@ -1234,31 +1282,30 @@ function setupEventListeners() {
 
 // Initialization listeners are handled in checkAuth
 function openMatchStudio() {
-    const isAdmin = userRole === "admin";
     studioMatch = { team_a: [], team_b: [], events: [] };
     editingMatchId = null;
     
     document.getElementById('ms-date').value = new Date().toISOString().split('T')[0];
-    document.getElementById('ms-date').disabled = !isAdmin;
+    document.getElementById('ms-date').disabled = !hasPermission('manageMatches');
     
     document.getElementById('ms-title').value = "";
-    document.getElementById('ms-title').disabled = !isAdmin;
+    document.getElementById('ms-title').disabled = !hasPermission('manageMatches');
     
     document.getElementById('goal-events-container-modern').innerHTML = "";
     document.getElementById('ms-awards-container-dynamic').innerHTML = "";
     document.getElementById('ms-ratings-container-dynamic').innerHTML = "";
     
     const finalizeBtn = document.getElementById('ms-finalize-btn');
-    if (finalizeBtn) finalizeBtn.classList.toggle('hidden', !isAdmin);
+    if (finalizeBtn) finalizeBtn.classList.toggle('hidden', !hasPermission('editMatch'));
     
     const addGoalBtn = document.getElementById('addGoalRowBtn');
-    if (addGoalBtn) addGoalBtn.classList.toggle('hidden', !isAdmin);
+    if (addGoalBtn) addGoalBtn.classList.toggle('hidden', !hasPermission('manageMatches'));
     
     const addAwardBtn = document.getElementById('addMatchAwardBtn');
-    if (addAwardBtn) addAwardBtn.classList.toggle('hidden', !isAdmin);
+    if (addAwardBtn) addAwardBtn.classList.toggle('hidden', !hasPermission('manageAwards'));
 
     const manageLineupsBtn = document.getElementById('togglePlayerPoolBtn');
-    if (manageLineupsBtn) manageLineupsBtn.classList.toggle('hidden', !isAdmin);
+    if (manageLineupsBtn) manageLineupsBtn.classList.toggle('hidden', !hasPermission('manageMatches'));
 
     // Add default rows for MVP, LVP, GK
     addAwardRowInStudio("MVP");
@@ -1272,12 +1319,12 @@ function openMatchStudio() {
 
 function renderSelectionGrid() {
     const pool = document.getElementById('ms-player-pool');
-    const isAdmin = userRole === "admin";
+    const canManageLineups = hasPermission('manageMatches');
 
     pool.innerHTML = players.map(p => {
         if (!p) return "";
         let state = studioMatch.team_a.some(pid => String(pid) === String(p.id)) ? 'active-a' : (studioMatch.team_b.some(pid => String(pid) === String(p.id)) ? 'active-b' : '');
-        return `<button class="player-chip-mini ${state} action-cycle-player" data-id="${p.id}" ${!isAdmin ? 'disabled' : ''}>${p.name}</button>`;
+        return `<button class="player-chip-mini ${state} action-cycle-player" data-id="${p.id}" ${!canManageLineups ? 'disabled' : ''}>${p.name}</button>`;
     }).join('');
 
     const getPRef = (pid) => players.find(p => p && String(p.id) === String(pid));
@@ -1314,7 +1361,7 @@ function renderSelectionGrid() {
 }
 
 function cyclePlayer(id) {
-    if (userRole !== "admin") return;
+    if (!hasPermission('manageMatches')) return;
     const inA = studioMatch.team_a.some(x => String(x) === String(id));
     const inB = studioMatch.team_b.some(x => String(x) === String(id));
 
@@ -1331,7 +1378,7 @@ function cyclePlayer(id) {
 }
 
 function addGoalRow(initialData = null) {
-    const isAdmin = userRole === "admin";
+    const canEdit = hasPermission('manageMatches');
     const all = [...studioMatch.team_a, ...studioMatch.team_b];
     const opts = '<option value="">Select Scorer</option>' + all.map(pid => `<option value="${pid}">${players.find(p => p && String(p.id) === String(pid))?.name || "Unknown"}</option>`).join('');
     
@@ -1339,10 +1386,10 @@ function addGoalRow(initialData = null) {
     div.className = "event-card-row timeline-item";
     div.innerHTML = `
         <div style="width: 70px;">
-            <input type="number" placeholder="Min" class="m-min" value="${initialData?.min || ''}" style="margin:0; padding:8px;" ${!isAdmin ? 'disabled' : ''}>
+            <input type="number" placeholder="Min" class="m-min" value="${initialData?.min || ''}" style="margin:0; padding:8px;" ${!canEdit ? 'disabled' : ''}>
         </div>
         <div style="flex: 2;">
-            <select class="m-scorer" style="margin:0; padding:8px;" ${!isAdmin ? 'disabled' : ''}>
+            <select class="m-scorer" style="margin:0; padding:8px;" ${!canEdit ? 'disabled' : ''}>
                 ${opts}
             </select>
         </div>
@@ -1350,19 +1397,19 @@ function addGoalRow(initialData = null) {
             <div class="toggle-label-pill">
                 <span class="toggle-text">OG</span>
                 <label class="modern-toggle og-style">
-                    <input type="checkbox" class="m-owngoal" ${initialData?.ownGoal ? 'checked' : ''} ${!isAdmin ? 'disabled' : ''}>
+                    <input type="checkbox" class="m-owngoal" ${initialData?.ownGoal ? 'checked' : ''} ${!canEdit ? 'checked' : ''} ${!canEdit ? 'disabled' : ''}>
                     <span class="toggle-slider"></span>
                 </label>
             </div>
             <div class="toggle-label-pill">
                 <span class="toggle-text">PEN</span>
                 <label class="modern-toggle pen-style">
-                    <input type="checkbox" class="m-penalty" ${initialData?.penalty ? 'checked' : ''} ${!isAdmin ? 'disabled' : ''}>
+                    <input type="checkbox" class="m-penalty" ${initialData?.penalty ? 'checked' : ''} ${!canEdit ? 'checked' : ''} ${!canEdit ? 'disabled' : ''}>
                     <span class="toggle-slider"></span>
                 </label>
             </div>
         </div>
-        ${isAdmin ? `
+        ${canEdit ? `
         <button class="goal-delete action-remove-timeline-row" style="background:none; border:none; color:#ff4d4d; cursor:pointer; font-size:1.2rem; margin-left: 10px;">
             <i class="fas fa-times-circle"></i>
         </button>
@@ -1376,7 +1423,7 @@ function addGoalRow(initialData = null) {
 }
 
 function addAwardRowInStudio(label = "", playerVal = "") {
-    const isAdmin = userRole === "admin";
+    const canManageAwards = hasPermission('manageAwards');
     const container = document.getElementById('ms-awards-container-dynamic');
     const all = [...studioMatch.team_a, ...studioMatch.team_b];
     const opts = '<option value="">Select Player</option>' + all.map(pid => `<option value="${pid}">${players.find(p => p && String(p.id) === String(pid))?.name || "Unknown"}</option>`).join('');
@@ -1385,14 +1432,14 @@ function addAwardRowInStudio(label = "", playerVal = "") {
     div.className = "award-row-dynamic studio-award-item";
     div.innerHTML = `
         <div style="flex: 1;">
-            <input type="text" class="ms-award-label" placeholder="Award Name" value="${label}" style="margin:0; padding:8px;" ${!isAdmin ? 'disabled' : ''}>
+            <input type="text" class="ms-award-label" placeholder="Award Name" value="${label}" style="margin:0; padding:8px;" ${!canManageAwards ? 'disabled' : ''}>
         </div>
         <div style="flex: 1;">
-            <select class="ms-award-player-select" style="margin:0; padding:8px;" ${!isAdmin ? 'disabled' : ''}>
+            <select class="ms-award-player-select" style="margin:0; padding:8px;" ${!canManageAwards ? 'disabled' : ''}>
                 ${opts}
             </select>
         </div>
-        ${isAdmin ? `
+        ${canManageAwards ? `
         <button class="action-remove-award-row" style="background:none; border:none; color:#ff4d4d; cursor:pointer;">
             <i class="fas fa-minus-circle"></i>
         </button>
@@ -1409,7 +1456,7 @@ function renderRatingsGrid(existingRatings = []) {
     if (!container) return;
     
     const all = [...studioMatch.team_a, ...studioMatch.team_b];
-    const isAdmin = userRole === "admin";
+    const canRate = hasPermission('editMatch');
     
     if (all.length === 0) {
         container.innerHTML = '<p class="text-dim" style="padding:10px; font-size:0.8rem;">Select players for lineups first.</p>';
@@ -1433,7 +1480,7 @@ function renderRatingsGrid(existingRatings = []) {
                            data-player-id="${p.id}" 
                            value="${val}" 
                            placeholder="0.0"
-                           ${!isAdmin ? 'disabled' : ''}>
+                           ${!canRate ? 'disabled' : ''}>
                 </div>
             </div>
         `;
@@ -1441,8 +1488,8 @@ function renderRatingsGrid(existingRatings = []) {
 }
 
 async function saveMatch() {
-    if (userRole !== "admin") {
-        showAlertModal("Admin access required");
+    if (!hasPermission('editMatch')) {
+        showAlertModal("Unauthorized: Match Rater, Editor or Admin required.");
         return;
     }
     
@@ -1533,7 +1580,6 @@ async function saveMatch() {
 }
 
 function editMatch(id) {
-    const isAdmin = userRole === "admin";
     const match = matches.find(m => m && m.id == id);
     if (!match) return;
 
@@ -1545,10 +1591,10 @@ function editMatch(id) {
     };
 
     document.getElementById('ms-date').value = match.date;
-    document.getElementById('ms-date').disabled = !isAdmin;
+    document.getElementById('ms-date').disabled = !hasPermission('manageMatches');
     
     document.getElementById('ms-title').value = match.title;
-    document.getElementById('ms-title').disabled = !isAdmin;
+    document.getElementById('ms-title').disabled = !hasPermission('manageMatches');
     
     document.getElementById('goal-events-container-modern').innerHTML = "";
     match.events.forEach(ev => addGoalRow(ev));
@@ -1561,16 +1607,16 @@ function editMatch(id) {
     }
 
     const finalizeBtn = document.getElementById('ms-finalize-btn');
-    if (finalizeBtn) finalizeBtn.classList.toggle('hidden', !isAdmin);
+    if (finalizeBtn) finalizeBtn.classList.toggle('hidden', !hasPermission('editMatch'));
     
     const addGoalBtn = document.getElementById('addGoalRowBtn');
-    if (addGoalBtn) addGoalBtn.classList.toggle('hidden', !isAdmin);
+    if (addGoalBtn) addGoalBtn.classList.toggle('hidden', !hasPermission('manageMatches'));
     
     const addAwardBtn = document.getElementById('addMatchAwardBtn');
-    if (addAwardBtn) addAwardBtn.classList.toggle('hidden', !isAdmin);
+    if (addAwardBtn) addAwardBtn.classList.toggle('hidden', !hasPermission('manageAwards'));
 
     const manageLineupsBtn = document.getElementById('togglePlayerPoolBtn');
-    if (manageLineupsBtn) manageLineupsBtn.classList.toggle('hidden', !isAdmin);
+    if (manageLineupsBtn) manageLineupsBtn.classList.toggle('hidden', !hasPermission('manageMatches'));
 
     renderSelectionGrid();
     renderRatingsGrid(match.ratings || []);
@@ -1613,6 +1659,10 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // --- SEASON MANAGER LOGIC ---
 function openSeasonManager() {
+    if (!hasPermission('manageSeasons')) {
+        showAlertModal("Unauthorized: Editor or Admin access required.");
+        return;
+    }
     renderSeasonManager();
     toggleModal('season-manager-modal', true);
 }
@@ -1723,6 +1773,10 @@ function enableSeasonRename(id) {
 }
 
 async function saveSeasonRename(id) {
+    if (!hasPermission('manageSeasons')) {
+        showAlertModal("Unauthorized: Editor or Admin access required.");
+        return;
+    }
     const input = document.getElementById(`name-input-${id}`);
     const newName = input.value.trim();
     
@@ -1753,7 +1807,10 @@ function cancelDeleteSeason(id) {
 }
 
 async function deleteSeason(id) {
-    if (userRole !== "admin") return;
+    if (!hasPermission('manageSeasons')) {
+        showAlertModal("Unauthorized: Editor or Admin access required.");
+        return;
+    }
     
     try {
         // 1. Get all match IDs for this season to clean up awards/ratings if cascade fails
@@ -1797,8 +1854,8 @@ async function deleteSeason(id) {
 }
 
 async function addSeasonFromManager() {
-    if (userRole !== "admin") {
-        showAlertModal("Admin access required");
+    if (!hasPermission('manageSeasons')) {
+        showAlertModal("Unauthorized: Editor or Admin access required.");
         return;
     }
     const input = document.getElementById('sm-new-name');
@@ -1863,7 +1920,10 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // Delete match function
 async function deleteMatch(id) {
-    if (userRole !== "admin") return;
+    if (!hasPermission('deleteMatch')) {
+        showAlertModal("Unauthorized: Match Rater, Editor or Admin access required.");
+        return;
+    }
     openConfirmModal("Delete this match?", async () => {
         await deleteMatchFromDB(id);
     }, "delete");
@@ -1909,7 +1969,10 @@ function handleFileSelect(event) {
 }
 
 function importData(event) {
-    if (userRole !== "admin") return;
+    if (!hasPermission('all')) {
+        showAlertModal("Unauthorized: Admin access required.");
+        return;
+    }
     const file = event.target.files[0];
     if (!file) return;
 
@@ -1944,8 +2007,7 @@ function togglePlayerPool() {
 // ===== USER MANAGEMENT =====
 
 async function loadUsers() {
-    const isAdmin = userRole === "admin";
-    if (!isAdmin) return;
+    if (!hasPermission('all')) return;
 
     const list = document.getElementById('user-list-container');
     const countEl = document.getElementById('user-count');
@@ -1972,13 +2034,24 @@ async function loadUsers() {
             return;
         }
 
+        const roleOptions = Object.keys(ROLE_PERMISSIONS).map(r => 
+            `<option value="${r}">${r.replace('_', ' ').toUpperCase()}</option>`
+        ).join('');
+
         list.innerHTML = users.map(u => `
-            <div class="glass-card" style="padding: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.05);">
-                <div style="display: flex; flex-direction: column; gap: 2px;">
-                    <span style="font-weight: 500; font-size: 0.9rem;">${u.email || 'Email missing (' + u.user_id.substring(0,8) + '...)'}</span>
-                    <span class="accent-text" style="font-size: 0.7rem; font-weight: bold; text-transform: uppercase;">${u.role}</span>
+            <div class="glass-card" style="padding: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.05); gap: 10px;">
+                <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; overflow: hidden;">
+                    <span style="font-weight: 500; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${u.email || 'Email missing (' + u.user_id.substring(0,8) + '...)'}</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <select class="role-select" data-id="${u.user_id}" style="font-size: 0.7rem; padding: 4px; background: rgba(0,0,0,0.3); color: var(--accent); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px;">
+                            ${roleOptions.split('value="' + u.role + '"').join('value="' + u.role + '" selected')}
+                        </select>
+                        <button class="btn-neon action-save-role" data-id="${u.user_id}" style="padding: 4px 8px; font-size: 0.6rem; margin: 0; min-width: auto; height: auto;">
+                            <i class="fas fa-save"></i>
+                        </button>
+                    </div>
                 </div>
-                <button class="btn-danger action-delete-user" data-id="${u.user_id}" style="padding: 6px 10px; font-size: 0.7rem;">
+                <button class="btn-danger action-delete-user" data-id="${u.user_id}" style="padding: 6px 10px; font-size: 0.7rem; min-width: auto;">
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
@@ -1990,8 +2063,36 @@ async function loadUsers() {
     }
 }
 
+async function updateUserRole(userId, newRole) {
+    if (!hasPermission('all')) {
+        showAlertModal("Unauthorized: Admin access required.");
+        return;
+    }
+
+    try {
+        const { error } = await supabase
+            .from('user_roles')
+            .update({ role: newRole })
+            .eq('user_id', userId);
+
+        if (error) throw error;
+
+        // Also update profiles if present
+        await supabase.from('profiles').update({ role: newRole }).eq('id', userId);
+
+        showAlertModal("Role updated successfully!");
+        await loadUsers();
+    } catch (err) {
+        console.error("Update Role Error:", err);
+        showAlertModal("Error updating role: " + err.message);
+    }
+}
+
 async function createUser() {
-    if (userRole !== "admin") return;
+    if (!hasPermission('all')) {
+        showAlertModal("Unauthorized: Admin access required.");
+        return;
+    }
 
     const email = document.getElementById('um-email').value.trim();
     const password = document.getElementById('um-password').value.trim();
@@ -2041,7 +2142,10 @@ async function createUser() {
 }
 
 async function deleteUser(id) {
-    if (userRole !== "admin") return;
+    if (!hasPermission('all')) {
+        showAlertModal("Unauthorized: Admin access required.");
+        return;
+    }
     
     // Prevent self-deletion if possible
     if (session && session.user.id === id) {
