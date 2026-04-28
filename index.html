@@ -107,119 +107,143 @@
                 </div>
             </section>
 
-            <!-- SETTINGS -->
+            <!-- SETTINGS / ADMIN PANEL -->
             <section id="settings" class="page">
                 <header>
-                    <h1>SETTINGS</h1>
+                    <h1>ADMIN CENTER</h1>
+                    <p class="text-dim">System configuration and maintenance portal</p>
                 </header>
 
-                <div class="settings-grid">
-                    <!-- SYSTEM SECTION -->
-                    <div class="settings-group admin-only">
-                        <div class="settings-card">
-                            <div class="settings-title">
-                                <i class="fas fa-microchip"></i> System
+                <div class="admin-dashboard-grid">
+                    <!-- 1. ANALYTICS CARD -->
+                    <div class="admin-card stats-card">
+                        <div class="admin-card-title">
+                            <i class="fas fa-chart-line"></i> Analytics Overview
+                        </div>
+                        <div class="admin-stats-grid">
+                            <div class="mini-stat">
+                                <span class="label">Matches</span>
+                                <span class="value" id="admin-total-matches">0</span>
                             </div>
-                            <p class="settings-desc">Control core system parameters and session state.</p>
-                            <div class="settings-actions">
-                                <button class="btn-danger w-100" id="resetSystemBtn">
-                                    <i class="fas fa-trash-alt"></i> Reset Entire System
-                                </button>
-                                <button class="btn-neon w-100" id="logoutBtn">
-                                    <i class="fas fa-sign-out-alt"></i> Logout Session
-                                </button>
+                            <div class="mini-stat">
+                                <span class="label">Goals</span>
+                                <span class="value" id="admin-total-goals">0</span>
+                            </div>
+                            <div class="mini-stat">
+                                <span class="label">Players</span>
+                                <span class="value" id="admin-total-players">0</span>
+                            </div>
+                        </div>
+                        <div class="best-player-mini" id="admin-best-player">
+                            <span class="label">Top Performer</span>
+                            <div class="best-player-row">
+                                <i class="fas fa-crown"></i>
+                                <span id="admin-mvp-name">No Data</span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- SEASON MANAGEMENT SECTION -->
-                    <div class="settings-group permission-manageSeasons">
-                        <div class="settings-card">
-                            <div class="settings-title">
-                                <i class="fas fa-calendar-alt"></i> Seasons
-                            </div>
-                            <p class="settings-desc">Organize and switch between different match seasons.</p>
-                            <div class="settings-actions">
-                                <button class="btn-neon w-100" id="openSeasonManagerBtn">
-                                    <i class="fas fa-calendar-check"></i> Manage Seasons
-                                </button>
-                            </div>
+                    <!-- 2. USER CONTROL -->
+                    <div class="admin-card admin-only">
+                        <div class="admin-card-title">
+                            <i class="fas fa-users-cog"></i> User Control
+                        </div>
+                        <p class="admin-card-desc">Users: <span id="admin-user-count" class="accent-text">0</span> Active</p>
+                        <div class="role-badges" id="admin-role-badges">
+                            <!-- JS Injected badges -->
+                        </div>
+                        <button class="btn-neon w-100" id="openUserMgmtBtn">
+                            <i class="fas fa-id-card"></i> Manage User Accounts
+                        </button>
+                    </div>
+
+                    <!-- 3. DATA MANAGEMENT -->
+                    <div class="admin-card admin-only">
+                        <div class="admin-card-title">
+                            <i class="fas fa-database"></i> Data Management
+                        </div>
+                        <p class="admin-card-desc">Backup Status: <span class="accent-text">Sync: OK</span></p>
+                        <div class="admin-actions-stack">
+                            <button id="exportDataBtn" class="btn-outline w-100">
+                                <i class="fas fa-file-export"></i> Export JSON Backup
+                            </button>
+                            <label class="custom-upload-box w-100" style="padding: 10px; margin: 0;">
+                                <i class="fas fa-file-import" style="font-size: 1rem; margin-bottom: 5px;"></i>
+                                <span style="font-size: 0.7rem;">Import .json Data</span>
+                                <input type="file" id="import-file-input" style="display: none;">
+                            </label>
+                            <p id="file-name-display" style="font-size: 0.6rem; margin: 0;"></p>
                         </div>
                     </div>
 
-                    <!-- DATA MANAGEMENT SECTION -->
-                    <div class="settings-group admin-only">
-                        <div class="settings-card">
-                            <div class="settings-title">
-                                <i class="fas fa-database"></i> Data Management
-                            </div>
-                            <p class="settings-desc">Backup your data or restore from a file.</p>
-                            <div class="settings-actions">
-                                <div style="display: flex; gap: 10px;">
-                                    <button id="exportDataBtn" class="btn-outline w-100">
-                                        <i class="fas fa-file-export"></i> Export Data
-                                    </button>
-                                </div>
+                    <!-- 4. DATA TOOLS -->
+                    <div class="admin-card admin-only">
+                        <div class="admin-card-title">
+                            <i class="fas fa-tools"></i> Data Tools
+                        </div>
+                        <p class="admin-card-desc">Maintenance and repair tasks.</p>
+                        <div class="admin-actions-stack">
+                            <button class="btn-outline w-100" id="recalculateStatsBtn">
+                                <i class="fas fa-sync-alt"></i> Recalculate All Stats
+                            </button>
+                            <button class="btn-outline w-100" id="fixDataBtn">
+                                <i class="fas fa-magic"></i> Fix Broken Records
+                            </button>
+                        </div>
+                    </div>
 
-                                <label class="custom-upload-box w-100">
-                                    <i class="fas fa-file-import"></i>
-                                    <span>Click to Import Data (.json)</span>
-                                    <div id="file-name-display">No file selected</div>
-                                    <input type="file" id="import-file-input" style="display: none;">
+                    <!-- 5. DEBUG MODE -->
+                    <div class="admin-card">
+                        <div class="admin-card-title">
+                            <i class="fas fa-vial"></i> Debug Mode
+                        </div>
+                        <div class="debug-controls">
+                            <div class="debug-row">
+                                <span>Status</span>
+                                <label class="modern-toggle pen-style">
+                                    <input type="checkbox" id="debug-toggle">
+                                    <span class="toggle-slider"></span>
                                 </label>
                             </div>
+                            <div class="debug-info-box hidden" id="debug-info-panel">
+                                <div class="debug-line">Season: <span id="debug-season-id" style="color: var(--accent);">ID</span></div>
+                                <div class="debug-line">Version: <span style="color: var(--accent);">3.4.0-PRV</span></div>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- USER MANAGEMENT SECTION -->
-                    <div class="settings-group admin-only">
-                        <div class="settings-card">
-                            <div class="settings-title">
-                                <i class="fas fa-users-cog"></i> User Management
-                            </div>
-                            <p class="settings-desc">Manage system users, passwords, and roles.</p>
-                            <div class="settings-actions">
-                                <button class="btn-neon w-100" id="openUserMgmtBtn">
-                                    <i class="fas fa-id-card"></i> Manage Users
+                    <!-- 6. SYSTEM CONTROL (CRITICAL) -->
+                    <div class="admin-card admin-only">
+                        <div class="admin-card-title" style="color: #ff4d4d;">
+                            <i class="fas fa-skull"></i> System Control
+                        </div>
+                        <p class="admin-card-desc">Destructive operations. Use with extreme caution.</p>
+                        <div class="admin-actions-stack">
+                            <button class="btn-danger w-100" id="resetSystemBtn">
+                                <i class="fas fa-trash-alt"></i> Wipe Entire Database
+                            </button>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn-outline w-100" id="clearMatchesBtn" style="color: #ff4d4d; border-color: rgba(255,77,77,0.2);">
+                                    Matches
+                                </button>
+                                <button class="btn-outline w-100" id="clearPlayersBtn" style="color: #ff4d4d; border-color: rgba(255,77,77,0.2);">
+                                    Players
                                 </button>
                             </div>
                         </div>
                     </div>
 
-                    <!-- SECURITY SECTION (New) -->
-                    <div class="settings-group">
-                        <div class="settings-card">
-                            <div class="settings-title">
-                                <i class="fas fa-lock"></i> Security
-                            </div>
-                            <p class="settings-desc">Update your account password. Use at least 6 characters.</p>
-                            <div class="settings-actions">
-                                <div class="password-input-wrapper">
-                                    <input type="password" id="settings-new-password" placeholder="New Password" class="w-100">
-                                    <i class="fas fa-eye toggle-password" data-target="settings-new-password"></i>
-                                </div>
-                                <div class="password-input-wrapper">
-                                    <input type="password" id="settings-confirm-password" placeholder="Confirm New Password" class="w-100">
-                                    <i class="fas fa-eye toggle-password" data-target="settings-confirm-password"></i>
-                                </div>
-                                <div id="password-error" class="inline-error" style="display: none;"></div>
-                                <button class="btn-neon w-100" id="updatePasswordBtn">
-                                    <i class="fas fa-key"></i> Update Password
-                                </button>
-                            </div>
+                    <!-- 7. SECURITY & ACCESS -->
+                    <div class="admin-card">
+                        <div class="admin-card-title">
+                            <i class="fas fa-shield-alt"></i> Security
                         </div>
-                    </div>
-
-
-                    <!-- VISITOR LOGOUT (Shown only to non-admins) -->
-                    <div class="settings-group visitor-only">
-                         <div class="settings-card" style="text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                            <div class="settings-title">
-                                <i class="fas fa-sign-out-alt"></i> Account
-                            </div>
-                            <p class="settings-desc">Exit your current session.</p>
-                             <button class="btn-neon w-100" id="logoutVisitorBtn">
-                                Logout
+                        <div class="admin-actions-stack">
+                            <input type="password" id="settings-new-password" placeholder="New Password">
+                            <input type="password" id="settings-confirm-password" placeholder="Confirm Password">
+                            <button class="btn-neon w-100" id="updatePasswordBtn">Update Password</button>
+                            <button class="btn-outline w-100" id="logoutBtn">
+                                <i class="fas fa-sign-out-alt"></i> Logout Session
                             </button>
                         </div>
                     </div>

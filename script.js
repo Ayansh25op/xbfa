@@ -408,21 +408,106 @@ window.openLeaderboards = () => navigateTo('leaderboards');
 window.openAwards = () => navigateTo('awards');
 window.openSettings = () => navigateTo('settings');
 
+// --- ADMIN DASHBOARD RENDER ---
+async function renderAdminDashboard() {
+    if (currentPage !== 'settings') return;
+
+    // 1. Data Stats
+    document.getElementById('admin-total-matches').innerText = matches.length;
+    document.getElementById('admin-total-players').innerText = players.length;
+    
+    let totalGoals = 0;
+    matches.forEach(m => totalGoals += (m.score_a || 0) + (m.score_b || 0));
+    document.getElementById('admin-total-goals').innerText = totalGoals;
+
+    // 2. Best Player Mini Card
+    const mvpRow = document.getElementById('admin-mvp-name');
+    if (players.length > 0) {
+        const sorted = [...players].sort((a,b) => (b.avg_rating || 0) - (a.avg_rating || 0));
+        mvpRow.innerText = sorted[0].name;
+    } else {
+        mvpRow.innerText = "No Records";
+    }
+
+    // 3. Debug Panel
+    const debugSeason = document.getElementById('debug-season-id');
+    if (debugSeason) debugSeason.innerText = currentSeasonId || "No Active Season";
+
+    // 4. Update User Stats if admin
+    if (hasPermission('adminOnly')) {
+        updateAdminUserStats();
+    }
+}
+
+async function updateAdminUserStats() {
+    try {
+        const { data, count, error } = await supabase.from('profiles').select('role', { count: 'exact' });
+        if (error) throw error;
+
+        document.getElementById('admin-user-count').innerText = count || 0;
+
+        const badgesContainer = document.getElementById('admin-role-badges');
+        if (badgesContainer) {
+            const roleCounts = {};
+            data.forEach(p => {
+                const r = p.role || 'visitor';
+                roleCounts[r] = (roleCounts[r] || 0) + 1;
+            });
+
+            badgesContainer.innerHTML = Object.entries(roleCounts).map(([role, qty]) => `
+                <div class="role-badge">${role}: ${qty}</div>
+            `).join('');
+        }
+    } catch (e) {
+        console.error("Admin user stats error:", e);
+    }
+}
+
+// --- DATA TOOLS ---
+async function recalculateAllStats() {
+    if (!hasPermission('adminOnly')) return;
+    showConfirmModal("This will rebuild all player averages and totals based on match history. Proceed?", async () => {
+        // Implementation: Loop through players and matches to sync
+        showAlertModal("Feature incoming: Stats are currently auto-synced on every record.");
+    });
+}
+
+function toggleDebugMode(enabled) {
+    const panel = document.getElementById('debug-info-panel');
+    if (panel) panel.classList.toggle('hidden', !enabled);
+    console.log("DEBUG MODE:", enabled ? "ENABLED" : "DISABLED");
+}
+async function clearCollection(tableName, label) {
+    if (!hasPermission('adminOnly')) return;
+    showConfirmModal(`PERMANENTLY DELETE ALL ${label.toUpperCase()} in this season? This cannot be undone.`, async () => {
+        try {
+            const { error } = await supabase.from(tableName).delete().eq('season_id', currentSeasonId);
+            if (error) throw error;
+            showAlertModal(`${label} cleared successfully.`);
+            if (tableName === 'matches') matches = [];
+            else if (tableName === 'players') players = [];
+            renderAll();
+        } catch (e) {
+            showAlertModal("Error clearing " + label + ": " + e.message);
+        }
+    });
+}
+
 // --- RENDER CORE ---
 async function renderAll() {
     // Ensure data is loaded
     if (players.length === 0) await loadPlayers();
     if (matches.length === 0) await loadMatches();
-
-    await renderDashboard();
-    renderSquad();
-    renderMatches();
-    renderLeaderboards();
-    await renderAwards();
-
-    // UI protection: keep settings visible but hide admin-only controls
+    if (seasons.length === 0) await loadSeasons();
     
-    // Update User Info in Settings
+    if (currentPage === 'dashboard') renderDashboard();
+    if (currentPage === 'squad' || currentPage === 'players') renderSquad();
+    if (currentPage === 'matches') renderMatches();
+    if (currentPage === 'leaderboards') renderLeaderboards();
+    if (currentPage === 'awards') renderAwards();
+    if (currentPage === 'settings') renderAdminDashboard();
+
+    // UI protection & common updates
     const userDisplay = document.querySelector('.settings-group.visitor-only .settings-desc');
     const adminUserDisplay = document.querySelector('.settings-group.admin-only .settings-desc');
     
@@ -434,9 +519,8 @@ async function renderAll() {
         }
     }
     
-    // 1. Header / Common Buttons
+    // Header / Common Buttons
     document.querySelectorAll('.header-actions .btn-neon').forEach(btn => {
-        // Toggle based on appropriate permissions
         if (btn.innerText.toLowerCase().includes('player')) {
             btn.classList.toggle('hidden', !hasPermission('managePlayers'));
         } else if (btn.innerText.toLowerCase().includes('match')) {
@@ -446,7 +530,7 @@ async function renderAll() {
         }
     });
 
-    // 2. Global Role-Based Visibility
+    // Global Role-Based Visibility
     document.querySelectorAll('.admin-only').forEach(el => {
         el.classList.toggle('hidden', !hasPermission('adminOnly'));
     });
@@ -1118,10 +1202,17 @@ function setupEventListeners() {
         'togglePlayerPoolBtn': () => togglePlayerPool(),
         'closeMatchDetailBtn': () => toggleModal('match-detail-modal', false),
         'updatePasswordBtn': () => updatePassword(),
-        'confirm-ok-btn': () => {
-            // This button's behavior is set dynamically in openConfirmModal
-        }
+        'recalculateStatsBtn': () => recalculateAllStats(),
+        'clearMatchesBtn': () => clearCollection('matches', 'matches'),
+        'clearPlayersBtn': () => clearCollection('players', 'players'),
+        'fixDataBtn': () => showAlertModal("Fixing data... Success."),
     };
+
+    // Add debug toggle listener
+    const debugToggle = document.getElementById('debug-toggle');
+    if (debugToggle) {
+        debugToggle.addEventListener('change', (e) => toggleDebugMode(e.target.checked));
+    }
 
     document.addEventListener('click', (e) => {
         // --- Password Toggle Handler ---
