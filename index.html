@@ -37,12 +37,12 @@
     </div>
 
     <ul class="nav-links">
-        <li id="nav-dashboard" class="active"><i class="fas fa-th-large"></i> <span>Dashboard</span></li>
-        <li id="nav-players"><i class="fas fa-users"></i> <span>Squad</span></li>
-        <li id="nav-matches"><i class="fas fa-gamepad"></i> <span>Matches</span></li>
-        <li id="nav-leaderboards"><i class="fas fa-trophy"></i> <span>Leaderboards</span></li>
-        <li id="nav-awards"><i class="fas fa-award"></i> <span>Awards</span></li>
-        <li id="nav-admin"><i class="fas fa-user-shield"></i> <span>Settings</span></li>
+        <li class="nav-item active" data-page="dashboard"><i class="fas fa-th-large"></i> <span>Dashboard</span></li>
+        <li class="nav-item" data-page="squad"><i class="fas fa-users"></i> <span>Squad</span></li>
+        <li class="nav-item" data-page="matches"><i class="fas fa-gamepad"></i> <span>Matches</span></li>
+        <li class="nav-item" data-page="leaderboards"><i class="fas fa-trophy"></i> <span>Leaderboards</span></li>
+        <li class="nav-item" data-page="awards"><i class="fas fa-award"></i> <span>Awards</span></li>
+        <li class="nav-item" data-page="settings"><i class="fas fa-user-shield"></i> <span>Settings</span></li>
     </ul>
 </nav>
 
@@ -71,7 +71,7 @@
             </section>
 
             <!-- SQUAD -->
-            <section id="players" class="page">
+            <section id="squad" class="page">
                 <div class="section-header-flex header-actions">
                     <h1>SQUAD MEMBERS</h1>
                     <button class="btn-neon" id="openAddPlayerBtn"><i class="fas fa-plus"></i> Add Player</button>
@@ -108,7 +108,7 @@
             </section>
 
             <!-- SETTINGS -->
-            <section id="admin" class="page">
+            <section id="settings" class="page">
                 <header>
                     <h1>SETTINGS</h1>
                 </header>
@@ -218,27 +218,27 @@
 
         <!-- BOTTOM NAVIGATION (MOBILE) -->
         <nav class="bottom-nav">
-            <div class="bottom-nav-item active" id="bnav-dashboard">
+            <div class="bottom-nav-item active" data-page="dashboard">
                 <i class="fas fa-th-large"></i>
                 <span>Dashboard</span>
             </div>
-            <div class="bottom-nav-item" id="bnav-players">
+            <div class="bottom-nav-item" data-page="squad">
                 <i class="fas fa-users"></i>
                 <span>Squad</span>
             </div>
-            <div class="bottom-nav-item" id="bnav-matches">
+            <div class="bottom-nav-item" data-page="matches">
                 <i class="fas fa-gamepad"></i>
                 <span>Matches</span>
             </div>
-            <div class="bottom-nav-item" id="bnav-leaderboards">
+            <div class="bottom-nav-item" data-page="leaderboards">
                 <i class="fas fa-trophy"></i>
                 <span>L-Boards</span>
             </div>
-            <div class="bottom-nav-item" id="bnav-awards">
+            <div class="bottom-nav-item" data-page="awards">
                 <i class="fas fa-award"></i>
                 <span>Awards</span>
             </div>
-            <div class="bottom-nav-item" id="bnav-admin">
+            <div class="bottom-nav-item" data-page="settings">
                 <i class="fas fa-user-shield"></i>
                 <span>Settings</span>
             </div>

@@ -373,32 +373,40 @@ async function recalculateStats() {
 
 
 // --- NAVIGATION ---
-function showPage(id) {
+function navigateTo(page) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
     
-    // Sidebar Nav
-    document.querySelectorAll('.nav-links li').forEach(li => li.classList.remove('active'));
-    const navItem = document.getElementById('nav-'+id);
-    if(navItem) navItem.classList.add('active');
-
-    // Bottom Nav
-    document.querySelectorAll('.bottom-nav-item').forEach(item => item.classList.remove('active'));
-    const bnavItem = document.getElementById('bnav-'+id);
-    if(bnavItem) bnavItem.classList.add('active');
+    const target = document.getElementById(page);
+    if (target) {
+        target.classList.add('active');
+    } else {
+        console.error("Page not found:", page);
+        return;
+    }
+    
+    // Update Active States for all nav items
+    document.querySelectorAll('.nav-item, .bottom-nav-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.page === page);
+    });
 
     renderAll();
     window.scrollTo(0, 0); // Reset scroll on page switch
 }
 
+// Support for old calls if any
+function showPage(id) {
+    navigateTo(id);
+}
+
 // --- GLOBAL NAVIGATION EXPOSURE ---
+window.navigateTo = navigateTo;
 window.showPage = showPage;
-window.openDashboard = () => showPage('dashboard');
-window.openSquad = () => showPage('players');
-window.openMatches = () => showPage('matches');
-window.openLeaderboards = () => showPage('leaderboards');
-window.openAwards = () => showPage('awards');
-window.openSettings = () => showPage('admin');
+window.openDashboard = () => navigateTo('dashboard');
+window.openSquad = () => navigateTo('squad');
+window.openMatches = () => navigateTo('matches');
+window.openLeaderboards = () => navigateTo('leaderboards');
+window.openAwards = () => navigateTo('awards');
+window.openSettings = () => navigateTo('settings');
 
 // --- RENDER CORE ---
 async function renderAll() {
@@ -1127,12 +1135,12 @@ function setupEventListeners() {
         }
 
         // 1. Sidebar & Bottom Navigation
-        const nav = e.target.closest('[id^="nav-"], [id^="bnav-"]');
+        const nav = e.target.closest('.nav-item, .bottom-nav-item');
         if (nav && !e.target.closest('button')) {
-            const pageId = nav.id.replace('nav-', '').replace('bnav-', '');
+            const pageId = nav.dataset.page;
             console.log("NAV CLICKED", pageId);
-            if (['dashboard','players','matches','leaderboards','awards','admin'].includes(pageId)) {
-                showPage(pageId);
+            if (pageId) {
+                navigateTo(pageId);
                 return;
             }
         }
