@@ -3,6 +3,7 @@ import { supabase, supabaseUrl, anonKey } from './supabase.js'
 // --- GLOBAL STATE ---
 let currentSeasonId = null;
 let currentSeasonName = "";
+let currentPage = "dashboard";
 let seasons = [];
 let players = [];
 let matches = [];
@@ -374,6 +375,7 @@ async function recalculateStats() {
 
 // --- NAVIGATION ---
 function navigateTo(page) {
+    currentPage = page;
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     
     const target = document.getElementById(page);
@@ -410,7 +412,7 @@ window.openSettings = () => navigateTo('settings');
 
 // --- ADMIN DASHBOARD RENDER ---
 async function renderAdminDashboard() {
-    if (currentPage !== 'settings') return;
+    if (!currentPage || currentPage !== 'settings') return;
 
     // 1. Data Stats
     document.getElementById('admin-total-matches').innerText = matches.length;
@@ -495,6 +497,7 @@ async function clearCollection(tableName, label) {
 
 // --- RENDER CORE ---
 async function renderAll() {
+    if (!currentPage) return;
     // Ensure data is loaded
     if (players.length === 0) await loadPlayers();
     if (matches.length === 0) await loadMatches();
