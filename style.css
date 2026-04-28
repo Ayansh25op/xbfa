@@ -574,6 +574,7 @@ h1 {
     background: rgba(255, 255, 255, 0.05);
     border-color: var(--accent);
     color: var(--accent);
+    box-shadow: 0 0 15px rgba(0, 255, 156, 0.15);
 }
 
 /* Premium Admin Dashboard */
@@ -693,6 +694,38 @@ h1 {
     display: flex;
     flex-direction: column;
     gap: 15px;
+}
+
+.profile-info-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 5px;
+}
+
+.profile-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.profile-row:last-child {
+    border-bottom: none;
+}
+
+.profile-row .label {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.profile-row .value {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #fff;
 }
 
 .password-input-wrapper {

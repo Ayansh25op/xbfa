@@ -466,6 +466,24 @@ async function renderAdminDashboard() {
     // 3. Debug Panel (always updated if element exists, visibility handled by .admin-only class)
     const debugSeason = document.getElementById('debug-season-id');
     if (debugSeason) debugSeason.innerText = currentSeasonId || "No Active Season";
+
+    // 4. Update Profile Card
+    const profileEmailEl = document.getElementById('profile-email');
+    const profileRoleBadgeEl = document.getElementById('profile-role-badge');
+    
+    if (profileEmailEl && session && session.user) {
+        profileEmailEl.innerText = session.user.email;
+    }
+    
+    if (profileRoleBadgeEl) {
+        profileRoleBadgeEl.className = 'role-badge';
+        profileRoleBadgeEl.innerText = userRole.toUpperCase();
+        
+        // Color coding for role badge
+        if (userRole === 'admin') profileRoleBadgeEl.style.color = '#00ff9c';
+        else if (userRole === 'editor') profileRoleBadgeEl.style.color = '#00eaff';
+        else profileRoleBadgeEl.style.color = 'var(--text-dim)';
+    }
 }
 
 async function updateAdminUserStats() {
