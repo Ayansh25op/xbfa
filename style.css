@@ -31,6 +31,7 @@ h1 {
     font-weight: 800; 
     text-transform: uppercase; 
     letter-spacing: 2px; 
+    line-height: 1;
     margin-bottom: 5px; 
     background: linear-gradient(90deg, #00ff9c, #00eaff);
     -webkit-background-clip: text;
@@ -49,6 +50,12 @@ h1 {
 
 .section-header-flex h1 {
     margin: 0;
+}
+
+.section-header-flex .btn-neon, 
+.section-header-flex .btn-outline {
+    transform: translateY(-2px);
+    height: 44px;
 }
 
 .text-dim {
