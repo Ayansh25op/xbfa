@@ -384,6 +384,15 @@ function showPage(id) {
     window.scrollTo(0, 0); // Reset scroll on page switch
 }
 
+// --- GLOBAL NAVIGATION EXPOSURE ---
+window.showPage = showPage;
+window.openDashboard = () => showPage('dashboard');
+window.openSquad = () => showPage('players');
+window.openMatches = () => showPage('matches');
+window.openLeaderboards = () => showPage('leaderboards');
+window.openAwards = () => showPage('awards');
+window.openSettings = () => showPage('admin');
+
 // --- RENDER CORE ---
 async function renderAll() {
     // Ensure data is loaded
@@ -1114,6 +1123,7 @@ function setupEventListeners() {
         const nav = e.target.closest('[id^="nav-"], [id^="bnav-"]');
         if (nav && !e.target.closest('button')) {
             const pageId = nav.id.replace('nav-', '').replace('bnav-', '');
+            console.log("NAV CLICKED", pageId);
             if (['dashboard','players','matches','leaderboards','awards','admin'].includes(pageId)) {
                 showPage(pageId);
                 return;

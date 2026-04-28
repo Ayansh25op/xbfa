@@ -51,7 +51,7 @@ h1 { font-size: 2.5rem; font-style: italic; margin-bottom: 30px; letter-spacing:
     max-width: 480px;
     background: #000; 
     border-top: 1px solid #222; 
-    z-index: 1000; 
+    z-index: 9999; 
     padding: 10px 0;
     justify-content: space-around;
     align-items: center;
@@ -690,14 +690,15 @@ input, select { background: #000; border: 1px solid #333; color: #fff; padding: 
     width: 100vw; 
     height: 100vh; 
     background: rgba(0,0,0,0.95); 
-    z-index: 2000; 
+    z-index: 9000; 
     align-items: center; 
     justify-content: center; 
     padding: 20px; 
     backdrop-filter: blur(8px);
     transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
 }
-.modal.show-flex { display: flex; animation: modalFadeIn 0.3s ease; }
+.modal.show-flex { display: flex; animation: modalFadeIn 0.3s ease; pointer-events: auto; }
 
 .modal-content { 
     max-width: 900px; 
