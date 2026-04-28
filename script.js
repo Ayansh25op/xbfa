@@ -479,6 +479,21 @@ function toggleDebugMode(enabled) {
     if (panel) panel.classList.toggle('hidden', !enabled);
     console.log("DEBUG MODE:", enabled ? "ENABLED" : "DISABLED");
 }
+
+// --- PASSWORD UI TOOL ---
+function togglePasswordVisibility(inputId, iconEl) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    if (input.type === 'password') {
+        input.type = 'text';
+        iconEl.classList.remove('fa-eye');
+        iconEl.classList.add('fa-eye-slash');
+    } else {
+        input.type = 'password';
+        iconEl.classList.remove('fa-eye-slash');
+        iconEl.classList.add('fa-eye');
+    }
+}
 async function clearCollection(tableName, label) {
     if (!hasPermission('adminOnly')) return;
     showConfirmModal(`PERMANENTLY DELETE ALL ${label.toUpperCase()} in this season? This cannot be undone.`, async () => {
