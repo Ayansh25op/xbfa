@@ -1683,16 +1683,46 @@ function cancelDeleteSeason(id) {
 
 async function deleteSeason(id) {
     if (userRole !== "admin") return;
-    const { error } = await supabase.from('seasons').delete().eq('id', id);
-    if (error) {
-        console.error("Error deleting season:", error);
-        return;
-    }
     
-    await loadSeasons();
-    updateSeasonSelector();
-    renderSeasonManager();
-    await renderAll();
+    try {
+        // 1. Get all match IDs for this season to clean up awards/ratings if cascade fails
+        const { data: seasonMatches, error: matchesFetchError } = await supabase
+            .from('matches')
+            .select('id')
+            .eq('season_id', id);
+        
+        if (matchesFetchError) throw matchesFetchError;
+        const matchIds = (seasonMatches || []).map(m => m.id);
+
+        // 2. Clean up match-related data
+        if (matchIds.length > 0) {
+            await supabase.from('match_awards').delete().in('match_id', matchIds);
+            await supabase.from('match_ratings').delete().in('match_id', matchIds);
+        }
+
+        // 3. Delete dependent entities
+        await supabase.from('matches').delete().eq('season_id', id);
+        await supabase.from('players').delete().eq('season_id', id);
+        await supabase.from('awards').delete().eq('season_id', id);
+
+        // 4. Finally delete the season itself
+        const { error: seasonError } = await supabase.from('seasons').delete().eq('id', id);
+        if (seasonError) throw seasonError;
+
+        // Reset currentSeasonId if it was the one deleted
+        if (currentSeasonId === id) {
+            currentSeasonId = null;
+        }
+        
+        await loadSeasons();
+        updateSeasonSelector();
+        renderSeasonManager();
+        await renderAll();
+        
+    } catch (err) {
+        console.error("Delete error:", err.message);
+        showAlertModal("Failed to delete season: " + err.message);
+    }
 }
 
 async function addSeasonFromManager() {

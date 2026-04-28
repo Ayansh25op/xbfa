@@ -164,6 +164,7 @@ DROP POLICY IF EXISTS "Allow all for authenticated users" ON public.seasons;
 DROP POLICY IF EXISTS "Allow select for everyone" ON public.seasons;
 CREATE POLICY "Allow all for authenticated users" ON public.seasons FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Allow select for everyone" ON public.seasons FOR SELECT TO public USING (true);
+CREATE POLICY "allow delete seasons" ON public.seasons FOR DELETE TO authenticated USING (true);
 
 DROP POLICY IF EXISTS "Allow all for authenticated users" ON public.match_ratings;
 DROP POLICY IF EXISTS "Allow select for everyone" ON public.match_ratings;
