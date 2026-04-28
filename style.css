@@ -735,9 +735,48 @@ input, select { background: #000; border: 1px solid #333; color: #fff; padding: 
     to { opacity: 1; }
 }
 
-@keyframes modalSlideUp {
-    from { transform: translateY(20px) scale(0.95); opacity: 0; }
-    to { transform: translateY(0) scale(1); opacity: 1; }
+/* Password Visibility Toggle */
+.password-input-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.password-input-wrapper input {
+    padding-right: 45px;
+}
+
+.toggle-password {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: var(--text-dim);
+    transition: 0.2s;
+    font-size: 0.9rem;
+    z-index: 5;
+    margin-top: -5px; /* Adjust for padding-bottom of inputs if needed */
+}
+
+.toggle-password:hover {
+    color: var(--accent);
+}
+
+.inline-error {
+    color: #ff4d4d;
+    font-size: 0.75rem;
+    margin-bottom: 12px;
+    background: rgba(255, 77, 77, 0.1);
+    padding: 8px 12px;
+    border-left: 3px solid #ff4d4d;
+    border-radius: 4px;
+    animation: shake 0.4s ease-in-out;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
 }
 .close-btn { position: absolute; top: 20px; right: 25px; font-size: 2rem; color: var(--text-dim); cursor: pointer; transition: 0.2s; }
 .close-btn:hover { color: #fff; }

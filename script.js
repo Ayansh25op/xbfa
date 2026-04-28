@@ -852,6 +852,62 @@ function toggleModal(id, show) {
     }
 }
 
+// --- SECURITY: PASSWORD UPDATE ---
+async function updatePassword() {
+    const newPass = document.getElementById('settings-new-password').value;
+    const confirmPass = document.getElementById('settings-confirm-password').value;
+    const errorEl = document.getElementById('password-error');
+    const updateBtn = document.getElementById('updatePasswordBtn');
+
+    // Reset UI
+    errorEl.style.display = 'none';
+    errorEl.innerText = '';
+    
+    // Validation
+    if (!newPass || newPass.length < 6) {
+        showPasswordError("Password must be at least 6 characters long.");
+        return;
+    }
+
+    if (newPass !== confirmPass) {
+        showPasswordError("Passwords do not match.");
+        return;
+    }
+
+    // Processing state
+    const originalBtnText = updateBtn.innerHTML;
+    updateBtn.disabled = true;
+    updateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+
+    try {
+        const { error } = await supabase.auth.updateUser({
+            password: newPass
+        });
+
+        if (error) throw error;
+
+        // Success
+        showAlertModal("Password updated successfully!");
+        document.getElementById('settings-new-password').value = '';
+        document.getElementById('settings-confirm-password').value = '';
+        
+    } catch (err) {
+        console.error("Password Update Error:", err);
+        showPasswordError(err.message || "Failed to update password. Please try again.");
+    } finally {
+        updateBtn.disabled = false;
+        updateBtn.innerHTML = originalBtnText;
+    }
+}
+
+function showPasswordError(msg) {
+    const errorEl = document.getElementById('password-error');
+    if (errorEl) {
+        errorEl.innerText = msg;
+        errorEl.style.display = 'block';
+    }
+}
+
 
 async function resetSystem() {
     if (userRole !== "admin") return;
@@ -992,12 +1048,27 @@ function setupEventListeners() {
         'cancelConfirmBtn': () => closeConfirmModal(),
         'togglePlayerPoolBtn': () => togglePlayerPool(),
         'closeMatchDetailBtn': () => toggleModal('match-detail-modal', false),
+        'updatePasswordBtn': () => updatePassword(),
         'confirm-ok-btn': () => {
             // This button's behavior is set dynamically in openConfirmModal
         }
     };
 
     document.addEventListener('click', (e) => {
+        // --- Password Toggle Handler ---
+        const passToggle = e.target.closest('.toggle-password');
+        if (passToggle) {
+            const targetId = passToggle.dataset.target;
+            const input = document.getElementById(targetId);
+            if (input) {
+                const isPass = input.type === 'password';
+                input.type = isPass ? 'text' : 'password';
+                passToggle.classList.toggle('fa-eye', !isPass);
+                passToggle.classList.toggle('fa-eye-slash', isPass);
+            }
+            return;
+        }
+
         // 1. Sidebar & Bottom Navigation
         const nav = e.target.closest('[id^="nav-"], [id^="bnav-"]');
         if (nav && !e.target.closest('button')) {
