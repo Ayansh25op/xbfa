@@ -9,7 +9,14 @@ let matches = [];
 
 const ROLE_PERMISSIONS = {
     admin: { all: true },
-    editor: { managePlayers: true, manageMatches: true, manageAwards: true, manageSeasons: true },
+    editor: { 
+        addMatch: true, 
+        editMatch: true, 
+        deleteMatch: true, 
+        managePlayers: true, 
+        manageAwards: true, 
+        manageSeasons: true 
+    },
     match_rater: { editMatch: true, deleteMatch: true, manageAwards: true },
     journalist: { manageAwards: true, readMatches: true },
     viewer: { readOnly: true },
@@ -425,7 +432,7 @@ async function renderAll() {
         if (btn.innerText.toLowerCase().includes('player')) {
             btn.classList.toggle('hidden', !hasPermission('managePlayers'));
         } else if (btn.innerText.toLowerCase().includes('match')) {
-            btn.classList.toggle('hidden', !hasPermission('editMatch'));
+            btn.classList.toggle('hidden', !hasPermission('addMatch'));
         } else if (btn.id === 'open-season-mgr') {
             btn.classList.toggle('hidden', !hasPermission('manageSeasons'));
         }
@@ -1296,10 +1303,10 @@ function openMatchStudio() {
     editingMatchId = null;
     
     document.getElementById('ms-date').value = new Date().toISOString().split('T')[0];
-    document.getElementById('ms-date').disabled = !hasPermission('manageMatches');
+    document.getElementById('ms-date').disabled = !hasPermission('editMatch');
     
     document.getElementById('ms-title').value = "";
-    document.getElementById('ms-title').disabled = !hasPermission('manageMatches');
+    document.getElementById('ms-title').disabled = !hasPermission('editMatch');
     
     document.getElementById('goal-events-container-modern').innerHTML = "";
     document.getElementById('ms-awards-container-dynamic').innerHTML = "";
@@ -1309,13 +1316,13 @@ function openMatchStudio() {
     if (finalizeBtn) finalizeBtn.classList.toggle('hidden', !hasPermission('editMatch'));
     
     const addGoalBtn = document.getElementById('addGoalRowBtn');
-    if (addGoalBtn) addGoalBtn.classList.toggle('hidden', !hasPermission('manageMatches'));
+    if (addGoalBtn) addGoalBtn.classList.toggle('hidden', !hasPermission('editMatch'));
     
     const addAwardBtn = document.getElementById('addMatchAwardBtn');
     if (addAwardBtn) addAwardBtn.classList.toggle('hidden', !hasPermission('manageAwards'));
 
     const manageLineupsBtn = document.getElementById('togglePlayerPoolBtn');
-    if (manageLineupsBtn) manageLineupsBtn.classList.toggle('hidden', !hasPermission('manageMatches'));
+    if (manageLineupsBtn) manageLineupsBtn.classList.toggle('hidden', !hasPermission('editMatch'));
 
     // Add default rows for MVP, LVP, GK
     addAwardRowInStudio("MVP");
@@ -1329,7 +1336,7 @@ function openMatchStudio() {
 
 function renderSelectionGrid() {
     const pool = document.getElementById('ms-player-pool');
-    const canManageLineups = hasPermission('manageMatches');
+    const canManageLineups = hasPermission('editMatch');
 
     pool.innerHTML = players.map(p => {
         if (!p) return "";
@@ -1371,7 +1378,7 @@ function renderSelectionGrid() {
 }
 
 function cyclePlayer(id) {
-    if (!hasPermission('manageMatches')) return;
+    if (!hasPermission('editMatch')) return;
     const inA = studioMatch.team_a.some(x => String(x) === String(id));
     const inB = studioMatch.team_b.some(x => String(x) === String(id));
 
@@ -1388,7 +1395,7 @@ function cyclePlayer(id) {
 }
 
 function addGoalRow(initialData = null) {
-    const canEdit = hasPermission('manageMatches');
+    const canEdit = hasPermission('editMatch');
     const all = [...studioMatch.team_a, ...studioMatch.team_b];
     const opts = '<option value="">Select Scorer</option>' + all.map(pid => `<option value="${pid}">${players.find(p => p && String(p.id) === String(pid))?.name || "Unknown"}</option>`).join('');
     
@@ -1498,8 +1505,8 @@ function renderRatingsGrid(existingRatings = []) {
 }
 
 async function saveMatch() {
-    if (!hasPermission('editMatch')) {
-        showAlertModal("Unauthorized: Match Rater, Editor or Admin required.");
+    if (!hasPermission('addMatch') && !hasPermission('editMatch')) {
+        showAlertModal("Unauthorized: Editor or Admin required.");
         return;
     }
     
@@ -1601,10 +1608,10 @@ function editMatch(id) {
     };
 
     document.getElementById('ms-date').value = match.date;
-    document.getElementById('ms-date').disabled = !hasPermission('manageMatches');
+    document.getElementById('ms-date').disabled = !hasPermission('editMatch');
     
     document.getElementById('ms-title').value = match.title;
-    document.getElementById('ms-title').disabled = !hasPermission('manageMatches');
+    document.getElementById('ms-title').disabled = !hasPermission('editMatch');
     
     document.getElementById('goal-events-container-modern').innerHTML = "";
     match.events.forEach(ev => addGoalRow(ev));
@@ -1620,13 +1627,13 @@ function editMatch(id) {
     if (finalizeBtn) finalizeBtn.classList.toggle('hidden', !hasPermission('editMatch'));
     
     const addGoalBtn = document.getElementById('addGoalRowBtn');
-    if (addGoalBtn) addGoalBtn.classList.toggle('hidden', !hasPermission('manageMatches'));
+    if (addGoalBtn) addGoalBtn.classList.toggle('hidden', !hasPermission('editMatch'));
     
     const addAwardBtn = document.getElementById('addMatchAwardBtn');
     if (addAwardBtn) addAwardBtn.classList.toggle('hidden', !hasPermission('manageAwards'));
 
     const manageLineupsBtn = document.getElementById('togglePlayerPoolBtn');
-    if (manageLineupsBtn) manageLineupsBtn.classList.toggle('hidden', !hasPermission('manageMatches'));
+    if (manageLineupsBtn) manageLineupsBtn.classList.toggle('hidden', !hasPermission('editMatch'));
 
     renderSelectionGrid();
     renderRatingsGrid(match.ratings || []);
