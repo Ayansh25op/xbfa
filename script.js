@@ -414,29 +414,56 @@ window.openSettings = () => navigateTo('settings');
 async function renderAdminDashboard() {
     if (!currentPage || currentPage !== 'settings') return;
 
+    const isAdmin = hasPermission('adminOnly');
+    
+    // Update Headings based on role
+    const titleEl = document.getElementById('settings-title');
+    const subtitleEl = document.getElementById('settings-subtitle');
+    
+    if (isAdmin) {
+        titleEl.innerText = "SYSTEM CONTROL";
+        subtitleEl.innerText = "Advanced configuration and maintenance portal";
+    } else {
+        titleEl.innerText = "ACCOUNT SETTINGS";
+        subtitleEl.innerText = "Manage your profile and security credentials";
+    }
+
+    // Toggle Visibility of admin-only sections
+    document.querySelectorAll('.admin-only').forEach(el => {
+        el.style.display = isAdmin ? 'flex' : 'none';
+    });
+
     // Only render advanced stats if allowed
-    if (hasPermission('adminOnly')) {
+    if (isAdmin) {
         // 1. Data Stats
-        document.getElementById('admin-total-matches').innerText = matches.length;
-        document.getElementById('admin-total-players').innerText = players.length;
+        const matchesCountEl = document.getElementById('admin-total-matches');
+        const playersCountEl = document.getElementById('admin-total-players');
+        const goalsCountEl = document.getElementById('admin-total-goals');
         
-        let totalGoals = 0;
-        matches.forEach(m => totalGoals += (m.score_a || 0) + (m.score_b || 0));
-        document.getElementById('admin-total-goals').innerText = totalGoals;
+        if (matchesCountEl) matchesCountEl.innerText = matches.length;
+        if (playersCountEl) playersCountEl.innerText = players.length;
+        
+        if (goalsCountEl) {
+            let totalGoals = 0;
+            matches.forEach(m => totalGoals += (m.score_a || 0) + (m.score_b || 0));
+            goalsCountEl.innerText = totalGoals;
+        }
 
         // 2. Best Player Mini Card
         const mvpRow = document.getElementById('admin-mvp-name');
-        if (players.length > 0) {
-            const sorted = [...players].sort((a,b) => (b.avg_rating || 0) - (a.avg_rating || 0));
-            mvpRow.innerText = sorted[0].name;
-        } else {
-            mvpRow.innerText = "No Records";
+        if (mvpRow) {
+            if (players.length > 0) {
+                const sorted = [...players].sort((a,b) => (b.avg_rating || 0) - (a.avg_rating || 0));
+                mvpRow.innerText = sorted[0].name;
+            } else {
+                mvpRow.innerText = "No Records";
+            }
         }
 
         updateAdminUserStats();
     }
 
-    // 3. Debug Panel (always updated if element exists, visibility handled by CSS classes)
+    // 3. Debug Panel (always updated if element exists, visibility handled by .admin-only class)
     const debugSeason = document.getElementById('debug-season-id');
     if (debugSeason) debugSeason.innerText = currentSeasonId || "No Active Season";
 }
