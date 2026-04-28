@@ -421,11 +421,11 @@ async function renderAdminDashboard() {
     const subtitleEl = document.getElementById('settings-subtitle');
     
     if (isAdmin) {
-        titleEl.innerText = "SYSTEM CONTROL";
-        subtitleEl.innerText = "Advanced configuration and maintenance portal";
+        if (titleEl) titleEl.innerText = "SYSTEM CONTROL";
+        if (subtitleEl) subtitleEl.innerText = "Advanced configuration and maintenance portal";
     } else {
-        titleEl.innerText = "ACCOUNT SETTINGS";
-        subtitleEl.innerText = "Manage your profile and security credentials";
+        if (titleEl) titleEl.innerText = "ACCOUNT SETTINGS";
+        if (subtitleEl) subtitleEl.innerText = "Manage your profile and security credentials";
     }
 
     // Toggle Visibility of admin-only sections
@@ -497,7 +497,8 @@ async function updateAdminUserStats() {
         const { data, count, error } = await supabase.from('profiles').select('role', { count: 'exact' });
         if (error) throw error;
 
-        document.getElementById('admin-user-count').innerText = count || 0;
+        const countEl = document.getElementById('admin-user-count');
+        if (countEl) countEl.innerText = count || 0;
 
         const badgesContainer = document.getElementById('admin-role-badges');
         if (badgesContainer) {
@@ -1052,23 +1053,28 @@ function toggleModal(id, show) {
 
 // --- SECURITY: PASSWORD UPDATE ---
 async function updatePassword() {
-    const newPass = document.getElementById('settings-new-password').value;
-    const confirmPass = document.getElementById('settings-confirm-password').value;
-    const errorEl = document.getElementById('password-error');
+    const newPassField = document.getElementById('settings-new-password');
+    const confirmPassField = document.getElementById('settings-confirm-password');
     const updateBtn = document.getElementById('updatePasswordBtn');
 
-    // Reset UI
-    errorEl.style.display = 'none';
-    errorEl.innerText = '';
+    if (!newPassField || !confirmPassField || !updateBtn) return;
+
+    const newPass = newPassField.value;
+    const confirmPass = confirmPassField.value;
     
     // Validation
-    if (!newPass || newPass.length < 6) {
-        showPasswordError("Password must be at least 6 characters long.");
+    if (!newPass) {
+        showAlertModal("Please enter a new password.");
+        return;
+    }
+
+    if (newPass.length < 6) {
+        showAlertModal("Password must be at least 6 characters long.");
         return;
     }
 
     if (newPass !== confirmPass) {
-        showPasswordError("Passwords do not match.");
+        showAlertModal("Passwords do not match.");
         return;
     }
 
@@ -1086,26 +1092,17 @@ async function updatePassword() {
 
         // Success
         showAlertModal("Password updated successfully!");
-        document.getElementById('settings-new-password').value = '';
-        document.getElementById('settings-confirm-password').value = '';
+        newPassField.value = '';
+        confirmPassField.value = '';
         
     } catch (err) {
         console.error("Password Update Error:", err);
-        showPasswordError(err.message || "Failed to update password. Please try again.");
+        showAlertModal(err.message || "Failed to update password. Please try again.");
     } finally {
         updateBtn.disabled = false;
         updateBtn.innerHTML = originalBtnText;
     }
 }
-
-function showPasswordError(msg) {
-    const errorEl = document.getElementById('password-error');
-    if (errorEl) {
-        errorEl.innerText = msg;
-        errorEl.style.display = 'block';
-    }
-}
-
 
 async function resetSystem() {
     if (!hasPermission('adminOnly')) {
