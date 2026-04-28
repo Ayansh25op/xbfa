@@ -8,7 +8,7 @@ let players = [];
 let matches = [];
 
 const ROLE_PERMISSIONS = {
-    admin: { all: true },
+    admin: { all: true, adminOnly: true },
     editor: { 
         addMatch: true, 
         editMatch: true, 
@@ -429,7 +429,7 @@ async function renderAll() {
     if (session) {
         const displayHtml = `Signed in as <span class="accent-text">${session.user.email}</span><br>Role: ${(userRole || "viewer").toUpperCase()}`;
         if (userDisplay) userDisplay.innerHTML = displayHtml;
-        if (adminUserDisplay && hasPermission('all')) {
+        if (adminUserDisplay && (hasPermission('all') || hasPermission('adminOnly'))) {
             adminUserDisplay.innerHTML = `Control core system. Logged in as <span class="accent-text">${session.user.email}</span>`;
         }
     }
@@ -441,14 +441,18 @@ async function renderAll() {
             btn.classList.toggle('hidden', !hasPermission('managePlayers'));
         } else if (btn.innerText.toLowerCase().includes('match')) {
             btn.classList.toggle('hidden', !hasPermission('addMatch'));
-        } else if (btn.id === 'open-season-mgr') {
+        } else if (btn.id === 'openSeasonManagerBtn') {
             btn.classList.toggle('hidden', !hasPermission('manageSeasons'));
         }
     });
 
     // 2. Global Role-Based Visibility
     document.querySelectorAll('.admin-only').forEach(el => {
-        el.classList.toggle('hidden', !hasPermission('all'));
+        el.classList.toggle('hidden', !hasPermission('adminOnly'));
+    });
+
+    document.querySelectorAll('.permission-manageSeasons').forEach(el => {
+        el.classList.toggle('hidden', !hasPermission('manageSeasons'));
     });
 
     document.querySelectorAll('.editor-allowed').forEach(el => {
@@ -965,7 +969,7 @@ function showPasswordError(msg) {
 
 
 async function resetSystem() {
-    if (!hasPermission('all')) {
+    if (!hasPermission('adminOnly')) {
         showAlertModal("Unauthorized: Admin access required.");
         return;
     }
@@ -1907,6 +1911,10 @@ async function addSeasonFromManager() {
 }
 
 async function switchSeason(id) {
+    if (!hasPermission('manageSeasons')) {
+        showAlertModal("Unauthorized: Season management permission required.");
+        return;
+    }
     currentSeasonId = id;
     updateSeasonSelector();
     renderSeasonManager();
@@ -1994,7 +2002,7 @@ function handleFileSelect(event) {
 }
 
 function importData(event) {
-    if (!hasPermission('all')) {
+    if (!hasPermission('adminOnly')) {
         showAlertModal("Unauthorized: Admin access required.");
         return;
     }
@@ -2032,7 +2040,7 @@ function togglePlayerPool() {
 // ===== USER MANAGEMENT =====
 
 async function loadUsers() {
-    if (!hasPermission('all')) return;
+    if (!hasPermission('adminOnly')) return;
 
     const list = document.getElementById('user-list-container');
     const countEl = document.getElementById('user-count');
@@ -2089,7 +2097,7 @@ async function loadUsers() {
 }
 
 async function updateUserRole(userId, newRole) {
-    if (!hasPermission('all')) {
+    if (!hasPermission('adminOnly')) {
         showAlertModal("Unauthorized: Admin access required.");
         return;
     }
@@ -2114,7 +2122,7 @@ async function updateUserRole(userId, newRole) {
 }
 
 async function createUser() {
-    if (!hasPermission('all')) {
+    if (!hasPermission('adminOnly')) {
         showAlertModal("Unauthorized: Admin access required.");
         return;
     }
@@ -2167,7 +2175,7 @@ async function createUser() {
 }
 
 async function deleteUser(id) {
-    if (!hasPermission('all')) {
+    if (!hasPermission('adminOnly')) {
         showAlertModal("Unauthorized: Admin access required.");
         return;
     }
