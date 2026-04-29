@@ -931,6 +931,24 @@ input::placeholder { color: rgba(255,255,255,0.3); }
     transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     pointer-events: none;
 }
+
+#confirm-modal, .popup, .modal-alert, .confirm-box {
+    z-index: 99999 !important;
+}
+
+.popup-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.5);
+    z-index: 99998;
+}
+
+#user-mgmt-modal, .user-manager-modal {
+    z-index: 8000; /* Lower than popups but higher than sidebar (100) */
+}
 .modal.show-flex { display: flex; animation: modalFadeIn 0.3s ease; pointer-events: auto; }
 
 .modal-content { 
