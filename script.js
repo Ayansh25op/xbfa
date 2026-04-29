@@ -1612,7 +1612,11 @@ function cyclePlayer(id) {
     renderRatingsGrid(studioMatch.ratings || []);
 }
 
-function addGoalRow(initialData = null) {
+function addGoalRow(initialData = null, isFromBottomSheet = false) {
+    if (window.innerWidth <= 768 && !isFromBottomSheet) {
+        openGoalBottomSheet(initialData);
+        return;
+    }
     const canEdit = hasPermission('editMatch');
     const all = [...studioMatch.team_a, ...studioMatch.team_b];
     const opts = '<option value="">Select Scorer</option>' + all.map(pid => `<option value="${pid}">${players.find(p => p && String(p.id) === String(pid))?.name || "Unknown"}</option>`).join('');
@@ -1692,6 +1696,7 @@ function renderRatingsGrid(existingRatings = []) {
     
     const all = [...studioMatch.team_a, ...studioMatch.team_b];
     const canRate = hasPermission('editMatch');
+    const isMobile = window.innerWidth <= 768;
     
     if (all.length === 0) {
         container.innerHTML = '<p class="text-dim" style="padding:10px; font-size:0.8rem;">Select players for lineups first.</p>';
@@ -1705,7 +1710,8 @@ function renderRatingsGrid(existingRatings = []) {
         const val = r ? r.rating : "";
         
         return `
-            <div class="rating-row-studio">
+            <div class="rating-row-studio ${isMobile ? 'mobile-rating-tap' : ''}" 
+                 data-pid="${pid}" data-name="${p.name}" data-val="${val}">
                 <div class="player-name">
                     <i class="fas fa-user-circle"></i> ${p.name}
                 </div>
@@ -1715,11 +1721,23 @@ function renderRatingsGrid(existingRatings = []) {
                            data-player-id="${p.id}" 
                            value="${val}" 
                            placeholder="0.0"
-                           ${!canRate ? 'disabled' : ''}>
+                           ${!canRate ? 'disabled' : ''}
+                           ${isMobile ? 'readonly' : ''}>
                 </div>
             </div>
         `;
     }).join('');
+
+    if (isMobile && canRate) {
+        container.querySelectorAll('.mobile-rating-tap').forEach(row => {
+            row.addEventListener('click', () => {
+                const pid = row.dataset.pid;
+                const name = row.dataset.name;
+                const currentVal = row.querySelector('.ms-player-rating').value;
+                openRatingPickerBottomSheet(pid, name, currentVal);
+            });
+        });
+    }
 }
 
 async function saveMatch() {
@@ -2418,3 +2436,120 @@ async function deleteUser(id) {
 }
 
 // Initialization listeners are handled in checkAuth and setupEventListeners
+
+// --- BOTTOM SHEET (MOBILE) ---
+function toggleBottomSheet(show, content = "") {
+    const bs = document.getElementById('bottom-sheet');
+    const body = document.getElementById('bottom-sheet-body');
+    if (!bs || !body) return;
+    if (show) {
+        body.innerHTML = content;
+        bs.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    } else {
+        bs.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+}
+
+// Close bottom sheet when clicking background or handle
+document.addEventListener('touchstart', (e) => {
+    const bs = document.getElementById('bottom-sheet');
+    if (e.target.id === 'bottom-sheet' || e.target.classList.contains('bottom-sheet-handle')) {
+        toggleBottomSheet(false);
+    }
+});
+document.addEventListener('click', (e) => {
+    const bs = document.getElementById('bottom-sheet');
+    if (e.target.id === 'bottom-sheet' || e.target.classList.contains('bottom-sheet-handle')) {
+        toggleBottomSheet(false);
+    }
+});
+
+function openGoalBottomSheet(initialData = null) {
+    const all = [...studioMatch.team_a, ...studioMatch.team_b];
+    const opts = '<option value="">Select Scorer</option>' + all.map(pid => {
+        const p = players.find(x => x && String(x.id) === String(pid));
+        return `<option value="${pid}">${p?.name || "Unknown"}</option>`;
+    }).join('');
+
+    const content = `
+        <h3 style="margin-bottom:20px; color:var(--accent); font-size: 1.3rem;">
+            <i class="fas fa-futbol"></i> ${initialData ? 'Edit Goal' : 'Add New Goal'}
+        </h3>
+        <div class="input-group-styled" style="margin-bottom:15px;">
+            <label>Minute</label>
+            <input type="number" id="bs-goal-min" value="${initialData?.min || ''}" placeholder="e.g. 24" style="height:50px; font-size:1.1rem;">
+        </div>
+        <div class="input-group-styled" style="margin-bottom:20px;">
+            <label>Scorer</label>
+            <select id="bs-goal-scorer" style="height:50px; font-size:1rem;">${opts}</select>
+        </div>
+        <div style="display:flex; gap:15px; margin-bottom:25px;">
+            <div class="toggle-label-pill" style="flex:1; justify-content:center; padding:15px; border:1px solid rgba(255,255,255,0.05); border-radius:16px; background: rgba(255,255,255,0.02);">
+                <span style="font-size: 0.8rem; opacity: 0.7;">Own Goal</span>
+                <label class="modern-toggle og-style">
+                    <input type="checkbox" id="bs-goal-og" ${initialData?.ownGoal ? 'checked' : ''}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="toggle-label-pill" style="flex:1; justify-content:center; padding:15px; border:1px solid rgba(255,255,255,0.05); border-radius:16px; background: rgba(255,255,255,0.02);">
+                <span style="font-size: 0.8rem; opacity: 0.7;">Penalty</span>
+                <label class="modern-toggle pen-style">
+                    <input type="checkbox" id="bs-goal-pen" ${initialData?.penalty ? 'checked' : ''}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+        <button class="btn-finalize-hero w-100" id="bs-goal-confirm" style="position:relative !important; height:55px; font-size:1rem; border-radius: 12px !important;">
+            Confirm Event
+        </button>
+    `;
+    toggleBottomSheet(true, content);
+
+    if (initialData?.scorer) document.getElementById('bs-goal-scorer').value = initialData.scorer;
+
+    document.getElementById('bs-goal-confirm').onclick = () => {
+        const min = document.getElementById('bs-goal-min').value;
+        const scorer = document.getElementById('bs-goal-scorer').value;
+        const og = document.getElementById('bs-goal-og').checked;
+        const pen = document.getElementById('bs-goal-pen').checked;
+
+        if (!min || !scorer) return;
+
+        // Call the underlying add function with a special flag
+        addGoalRow({ min, scorer, ownGoal: og, penalty: pen }, true);
+        toggleBottomSheet(false);
+    };
+}
+
+function openRatingPickerBottomSheet(pid, pName, currentVal) {
+    const ratings = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0];
+    const content = `
+        <h3 style="margin-bottom:10px; color:var(--accent); font-size: 1.2rem;">Rate ${pName}</h3>
+        <p class="text-dim" style="margin-bottom:20px; font-size:0.85rem;">Select match performance rating</p>
+        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:12px;">
+            ${ratings.map(rv => `
+                <button class="btn-outline rating-choice-btn ${parseFloat(currentVal) === rv ? 'active' : ''}" 
+                        style="height:60px; font-size:1.2rem; font-weight:800; border-radius:16px; border: 1px solid rgba(255,255,255,0.1); background: ${parseFloat(currentVal) === rv ? 'var(--accent)' : 'rgba(255,255,255,0.03)'}; color: ${parseFloat(currentVal) === rv ? '#000' : '#fff'};" 
+                        data-val="${rv}">
+                    ${rv.toFixed(1)}
+                </button>
+            `).join('')}
+        </div>
+    `;
+    toggleBottomSheet(true, content);
+
+    document.querySelectorAll('.rating-choice-btn').forEach(btn => {
+        btn.onclick = () => {
+            const val = btn.dataset.val;
+            const input = document.querySelector(`.ms-player-rating[data-player-id="${pid}"]`);
+            if (input) {
+                input.value = val;
+                const display = document.querySelector(`.rating-display-mobile[data-player-id="${pid}"]`);
+                if (display) display.innerText = val;
+            }
+            toggleBottomSheet(false);
+        };
+    });
+}
