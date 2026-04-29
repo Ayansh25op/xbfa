@@ -1285,7 +1285,7 @@ function setupEventListeners() {
         debugToggle.addEventListener('change', (e) => toggleDebugMode(e.target.checked));
     }
 
-    document.addEventListener('click', (e) => {
+    const handleModalInteraction = (e) => {
         // --- Password Toggle Handler ---
         const passToggle = e.target.closest('.toggle-password');
         if (passToggle) {
@@ -1297,6 +1297,18 @@ function setupEventListeners() {
                 passToggle.classList.toggle('fa-eye', !isPass);
                 passToggle.classList.toggle('fa-eye-slash', isPass);
             }
+            if (e.type === 'touchstart') e.preventDefault();
+            return;
+        }
+
+        // --- Generic Modal Close Trigger ---
+        const closeBtn = e.target.closest('.close-btn');
+        if (closeBtn) {
+            const modal = closeBtn.closest('.modal');
+            if (modal) {
+                toggleModal(modal.id, false);
+            }
+            if (e.type === 'touchstart') e.preventDefault();
             return;
         }
 
@@ -1307,6 +1319,7 @@ function setupEventListeners() {
             console.log("NAV CLICKED", pageId);
             if (pageId) {
                 navigateTo(pageId);
+                if (e.type === 'touchstart') e.preventDefault();
                 return;
             }
         }
@@ -1315,6 +1328,7 @@ function setupEventListeners() {
         for (const id in staticActions) {
             if (e.target.closest(`#${id}`)) {
                 staticActions[id]();
+                if (e.type === 'touchstart') e.preventDefault();
                 return;
             }
         }
@@ -1323,6 +1337,7 @@ function setupEventListeners() {
         const studioHeader = e.target.closest('.studio-section-title');
         if (studioHeader) {
             toggleStudioSection(studioHeader);
+            if (e.type === 'touchstart') e.preventDefault();
             return;
         }
 
@@ -1333,6 +1348,7 @@ function setupEventListeners() {
         const viewMatch = target.closest('.action-view-match');
         if (viewMatch) {
             viewMatchDetail(viewMatch.dataset.id);
+            if (e.type === 'touchstart') e.preventDefault();
             return;
         }
 
@@ -1340,11 +1356,13 @@ function setupEventListeners() {
         const delMatch = target.closest('.action-delete-match');
         if (delMatch) {
             deleteMatch(delMatch.dataset.id);
+            if (e.type === 'touchstart') e.preventDefault();
             return;
         }
         const editMatchBtn = target.closest('.action-edit-match');
         if (editMatchBtn) {
             editMatch(editMatchBtn.dataset.id);
+            if (e.type === 'touchstart') e.preventDefault();
             return;
         }
 
@@ -1352,11 +1370,13 @@ function setupEventListeners() {
         const delAward = target.closest('.action-delete-award');
         if (delAward) {
             deleteAward(delAward.dataset.id);
+            if (e.type === 'touchstart') e.preventDefault();
             return;
         }
         const editAward = target.closest('.action-edit-award');
         if (editAward) {
             openAwardStudio(editAward.dataset.id);
+            if (e.type === 'touchstart') e.preventDefault();
             return;
         }
 
@@ -1364,6 +1384,7 @@ function setupEventListeners() {
         const delPlayer = target.closest('.action-delete-player');
         if (delPlayer) {
             deletePlayer(delPlayer.dataset.id);
+            if (e.type === 'touchstart') e.preventDefault();
             return;
         }
 
@@ -1373,21 +1394,25 @@ function setupEventListeners() {
             const uid = saveRole.dataset.id;
             const select = document.querySelector(`.role-select[data-id="${uid}"]`);
             if (select) updateUserRole(uid, select.value);
+            if (e.type === 'touchstart') e.preventDefault();
             return;
         }
         const delUser = target.closest('.action-delete-user');
         if (delUser) {
             deleteUser(delUser.dataset.id);
+            if (e.type === 'touchstart') e.preventDefault();
             return;
         }
         const editPlayer = target.closest('.action-edit-player');
         if (editPlayer) {
             openPlayerStudio(editPlayer.dataset.id);
+            if (e.type === 'touchstart') e.preventDefault();
             return;
         }
         const viewProf = target.closest('.action-view-profile');
         if (viewProf) {
             viewProfile(viewProf.dataset.id);
+            if (e.type === 'touchstart') e.preventDefault();
             return;
         }
 
@@ -1395,16 +1420,19 @@ function setupEventListeners() {
         const cyclePl = target.closest('.action-cycle-player');
         if (cyclePl && !cyclePl.disabled) {
             cyclePlayer(cyclePl.dataset.id);
+            if (e.type === 'touchstart') e.preventDefault();
             return;
         }
         const remTimeline = target.closest('.action-remove-timeline-row');
         if (remTimeline) {
             remTimeline.closest('.timeline-item').remove();
+            if (e.type === 'touchstart') e.preventDefault();
             return;
         }
         const remAwardRow = target.closest('.action-remove-award-row');
         if (remAwardRow) {
             remAwardRow.parentElement.remove();
+            if (e.type === 'touchstart') e.preventDefault();
             return;
         }
 
@@ -1412,30 +1440,37 @@ function setupEventListeners() {
         const enRename = target.closest('.action-enable-season-rename');
         if (enRename) {
             enableSeasonRename(enRename.dataset.id);
+            if (e.type === 'touchstart') e.preventDefault();
             return;
         }
         const switchSeas = target.closest('.action-switch-season');
         if (switchSeas) {
             switchSeason(switchSeas.dataset.id);
+            if (e.type === 'touchstart') e.preventDefault();
             return;
         }
         const reqDelSeas = target.closest('.action-request-delete-season');
         if (reqDelSeas) {
             requestDeleteSeason(reqDelSeas.dataset.id);
+            if (e.type === 'touchstart') e.preventDefault();
             return;
         }
         const canDelSeas = target.closest('.action-cancel-delete-season');
         if (canDelSeas) {
             cancelDeleteSeason(canDelSeas.dataset.id);
+            if (e.type === 'touchstart') e.preventDefault();
             return;
         }
         const confDelSeas = target.closest('.action-confirm-delete-season');
         if (confDelSeas) {
             deleteSeason(confDelSeas.dataset.id);
+            if (e.type === 'touchstart') e.preventDefault();
             return;
         }
+    };
 
-    });
+    document.addEventListener('click', handleModalInteraction);
+    document.addEventListener('touchstart', handleModalInteraction, { passive: false });
 
     // Handle Input/Change Listeners
     document.addEventListener('change', (e) => {
@@ -1470,6 +1505,15 @@ function setupEventListeners() {
         }
     };
 }
+
+// --- GLOBAL MODAL CLOSE HELPER ---
+function closeModal() {
+    const activeModal = document.querySelector('.modal.show-flex');
+    if (activeModal) {
+        toggleModal(activeModal.id, false);
+    }
+}
+window.closeModal = closeModal;
 
 // Initialization listeners are handled in checkAuth
 function openMatchStudio() {
@@ -2024,33 +2068,15 @@ async function deleteSeason(id) {
     }
     
     try {
-        // 1. Get all match IDs for this season to clean up awards/ratings if cascade fails
-        const { data: seasonMatches, error: matchesFetchError } = await supabase
-            .from('matches')
-            .select('id')
-            .eq('season_id', id);
-        
-        if (matchesFetchError) throw matchesFetchError;
-        const matchIds = (seasonMatches || []).map(m => m.id);
-
-        // 2. Clean up match-related data
-        if (matchIds.length > 0) {
-            await supabase.from('match_awards').delete().in('match_id', matchIds);
-            await supabase.from('match_ratings').delete().in('match_id', matchIds);
-        }
-
-        // 3. Delete dependent entities
-        await supabase.from('matches').delete().eq('season_id', id);
-        await supabase.from('players').delete().eq('season_id', id);
-        await supabase.from('awards').delete().eq('season_id', id);
-
-        // 4. Finally delete the season itself
+        // With ON DELETE CASCADE enabled in the database, 
+        // we only need to delete the season itself.
         const { error: seasonError } = await supabase.from('seasons').delete().eq('id', id);
         if (seasonError) throw seasonError;
 
         // Reset currentSeasonId if it was the one deleted
         if (currentSeasonId === id) {
             currentSeasonId = null;
+            localStorage.removeItem('currentSeasonId');
         }
         
         await loadSeasons();

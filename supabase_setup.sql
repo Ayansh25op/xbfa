@@ -224,3 +224,23 @@ $$;
 CREATE OR REPLACE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+-- FIX: Add Cascade Delete to match_ratings and match_awards
+-- This ensures that when a match is deleted, its related ratings and awards are also removed automatically.
+ALTER TABLE public.match_ratings
+  DROP CONSTRAINT IF EXISTS match_ratings_match_id_fkey;
+
+ALTER TABLE public.match_ratings
+  ADD CONSTRAINT match_ratings_match_id_fkey
+  FOREIGN KEY (match_id)
+  REFERENCES public.matches(id)
+  ON DELETE CASCADE;
+
+ALTER TABLE public.match_awards
+  DROP CONSTRAINT IF EXISTS match_awards_match_id_fkey;
+
+ALTER TABLE public.match_awards
+  ADD CONSTRAINT match_awards_match_id_fkey
+  FOREIGN KEY (match_id)
+  REFERENCES public.matches(id)
+  ON DELETE CASCADE;
