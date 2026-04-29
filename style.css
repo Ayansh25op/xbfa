@@ -182,17 +182,6 @@ h1 {
     .score-num { font-size: 3rem; }
     .score-display { gap: 15px; }
     
-    .btn-finalize-hero { 
-        position: sticky; 
-        bottom: 0; 
-        left: 0; 
-        width: 100%; 
-        margin-top: auto;
-        border-radius: 0;
-        z-index: 10;
-        box-shadow: 0 -10px 20px rgba(0,0,0,0.5);
-    }
-    
     .leaderboard-grid { grid-template-columns: 1fr; }
     
     .awards-grid-redesign { grid-template-columns: 1fr; gap: 15px; }
@@ -274,7 +263,7 @@ h1 {
     }
 
     #match-studio-modal .studio-grid-layout {
-        padding: 70px 16px 110px 16px !important;
+        padding: 70px 16px 120px 16px !important;
         gap: 16px !important;
         overflow-y: auto;
         flex: 1;
@@ -357,20 +346,51 @@ h1 {
         text-align: center;
     }
 
-    .btn-finalize-hero {
-        position: fixed !important;
-        bottom: 0 !important;
-        left: 0 !important;
-        width: 100% !important;
-        margin: 0 !important;
-        border-radius: 0 !important;
-        padding: 20px !important;
-        z-index: 10001 !important;
-        height: 80px;
-        background: var(--accent-gradient) !important;
-        color: #000 !important;
-        font-weight: 800 !important;
-        box-shadow: 0 -10px 30px rgba(0,255,157,0.2) !important;
+    /* Mobile Actions Bar */
+    .mobile-actions {
+        width: 100%;
+        display: flex;
+        gap: 15px;
+        margin-top: 20px;
+    }
+    .mobile-actions button {
+        flex: 1;
+    }
+    
+    @media (max-width: 768px) {
+        .mobile-actions {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            margin-top: 0;
+            padding: 15px;
+            background: rgba(5, 5, 5, 0.95);
+            backdrop-filter: blur(15px);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            z-index: 10001;
+            gap: 10px;
+        }
+        .mobile-actions button {
+            height: 50px !important;
+            font-weight: 700;
+            border-radius: 12px;
+        }
+        .btn-finalize-hero {
+            position: static !important;
+            width: 100% !important;
+            height: 50px !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            background: var(--accent-gradient) !important;
+            color: #000 !important;
+            box-shadow: none !important;
+            border-radius: 12px !important;
+            font-size: 0.9rem !important;
+            display: flex !important;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
     }
 
     /* Input focus states for mobile */
@@ -1190,6 +1210,14 @@ input::placeholder { color: rgba(255,255,255,0.3); }
     25% { transform: translateX(-5px); }
     75% { transform: translateX(5px); }
 }
+.mobile-only { display: none !important; }
+.desktop-only { display: block; }
+@media (max-width: 768px) {
+    .mobile-only { display: block !important; }
+    .desktop-only { display: none !important; }
+}
+
+/* Already handled above with consolidated logic */
 .close-btn { 
     position: absolute; 
     top: 20px; 

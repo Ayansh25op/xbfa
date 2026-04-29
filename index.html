@@ -461,11 +461,14 @@
                     </div>
                 </div>
 
-                <!-- FINAL ACTION -->
-                <button class="btn-finalize-hero w-100" id="ms-finalize-btn">
-                    <i class="fas fa-check-circle"></i> Finalize Match
-                    <span>Save results and update all season statistics</span>
-                </button>
+                <!-- FINAL ACTIONS (MOBILE & DESKTOP) -->
+                <div class="mobile-actions">
+                    <button class="btn-outline mobile-only" onclick="closeModal()">Cancel</button>
+                    <button class="btn-finalize-hero" id="ms-finalize-btn">
+                        <i class="fas fa-check-circle"></i> Finalize Match
+                        <span class="desktop-only text-dim" style="display:block; font-size: 0.7rem; margin-top: 4px; font-weight: 400;">Save results and update all statistics</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
