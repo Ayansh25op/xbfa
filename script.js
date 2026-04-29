@@ -242,13 +242,18 @@ async function saveMatchToDB(match) {
         if (match.ratings) {
             await supabase.from('match_ratings').delete().eq('match_id', matchId);
             if (match.ratings.length > 0) {
-                const ratingsToInsert = match.ratings.map(r => ({
-                    match_id: matchId,
-                    player_id: r.player_id,
-                    rating: r.rating
-                }));
-                const { error: rError } = await supabase.from('match_ratings').insert(ratingsToInsert);
-                if (rError) throw rError;
+                const ratingsToInsert = match.ratings
+                    .filter(r => r.player_id && matchId)
+                    .map(r => ({
+                        match_id: matchId,
+                        player_id: r.player_id,
+                        rating: r.rating
+                    }));
+                
+                if (ratingsToInsert.length > 0) {
+                    const { error: rError } = await supabase.from('match_ratings').insert(ratingsToInsert);
+                    if (rError) throw rError;
+                }
             }
         }
 
@@ -1732,11 +1737,14 @@ async function saveMatch() {
         const ratings = [];
         document.querySelectorAll('.ms-player-rating').forEach(input => {
             const val = input.value;
-            if (val) {
+            const pid = input.dataset.playerId;
+            if (val && pid) {
                 ratings.push({
-                    player_id: input.dataset.player_id,
+                    player_id: pid,
                     rating: parseFloat(val).toFixed(1)
                 });
+            } else if (val) {
+                console.error("Missing player ID for rating value:", val);
             }
         });
 
