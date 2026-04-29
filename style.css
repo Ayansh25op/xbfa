@@ -178,7 +178,7 @@ h1 {
     .header-actions { width: 100%; }
     
     /* 1. Remove Boxiness */
-    .glass-card, .summary-card, .admin-card, .match-card, .award-card-modern {
+    .glass-card, .summary-card, .admin-card, .match-card, .award-card-modern, .award-card-mini {
         background: transparent !important;
         border: none !important;
         border-radius: 0 !important;
@@ -195,15 +195,15 @@ h1 {
         letter-spacing: 1px;
     }
 
-    /* 2. Flat List Design for Squad */
-    .squad-container {
+    /* 2. Flat List Design for Squad & Leaderboard */
+    .squad-container, .leaderboard-grid {
         display: flex !important;
         flex-direction: column !important;
         gap: 0 !important;
         border-top: 1px solid rgba(255,255,255,0.05);
     }
 
-    .player-card {
+    .player-card, .leader-row {
         width: 100% !important;
         height: auto !important;
         min-height: auto !important;
@@ -215,12 +215,15 @@ h1 {
         margin: 0 !important;
         border-bottom: 1px solid rgba(255,255,255,0.05) !important;
         background: transparent !important;
+        border-radius: 0 !important;
     }
+    
+    .leader-row { padding: 16px 0 !important; }
 
-    .player-card:hover { transform: none !important; box-shadow: none !important; }
-    .player-card .player-img { width: 40px !important; height: 40px !important; margin: 0 !important; border-radius: 8px !important; }
-    .player-card .name { margin: 0 !important; font-size: 1rem !important; font-weight: 600 !important; text-shadow: none !important; color: #fff !important; }
-    .player-card .rating { position: static !important; font-size: 1.2rem !important; text-align: right !important; }
+    .player-card:hover, .leader-row:hover { transform: none !important; box-shadow: none !important; }
+    .player-card .player-img, .leader-row .rank { width: 40px !important; height: 40px !important; margin: 0 !important; display: flex; align-items: center; justify-content: center; }
+    .player-card .name, .leader-row .name { margin: 0 !important; font-size: 1rem !important; font-weight: 600 !important; text-shadow: none !important; color: #fff !important; }
+    .player-card .rating, .leader-row .stat { position: static !important; font-size: 1.2rem !important; text-align: right !important; font-weight: 800; }
     .player-card .pos { font-size: 0.7rem !important; margin: 0 !important; }
     .card-number, .card-rating-badge, .player-stats-meta { display: none !important; }
 
@@ -250,6 +253,8 @@ h1 {
         margin-bottom: 24px !important;
     }
     .summary-card .value { font-size: 1.6rem !important; }
+    .mini-stat { padding: 12px 5px !important; border-radius: 12px !important; }
+    .mini-stat .value { font-size: 1.3rem !important; }
 
     /* 5. Floating Action Button */
     .mobile-fab {
@@ -280,13 +285,128 @@ h1 {
         font-size: 1rem !important;
     }
 
-    /* 7. Modal Fullscreen & Studio Redesign */
+    /* ✨ GLOW EFFECTS */
+.glass-card, .summary-card, .admin-card, .match-card, .award-card-modern, .award-card-mini, .player-card, .leader-row, .studio-section, .season-card-modern {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.summary-card:hover, .player-card:hover, .match-card:hover, .award-card-modern:hover, .studio-section:hover, .season-card-modern:hover {
+    border-color: rgba(0, 255, 131, 0.4) !important;
+    box-shadow: 0 0 20px rgba(0, 255, 131, 0.15) !important;
+}
+
+/* 7. Modal Fullscreen & Studio Redesign */
     .modal-content { 
         padding: 24px 16px !important; 
         border-radius: 0 !important; 
         height: 100% !important;
         max-height: 100% !important;
+        border: none !important;
     }
+
+    #player-modal .modal-content, #match-detail-modal .modal-content {
+        background: #050505 !important;
+    }
+
+    /* Player Detail Mobile Redesign */
+    .player-profile-header {
+        text-align: center;
+        padding: 40px 20px;
+        background: linear-gradient(to bottom, rgba(0, 255, 131, 0.05), transparent);
+        border-radius: 0 0 40px 40px;
+        margin-top: -24px;
+        margin-left: -16px;
+        margin-right: -16px;
+        margin-bottom: 30px;
+    }
+    .player-profile-header img {
+        width: 140px !important;
+        height: 140px !important;
+        border-radius: 30px !important;
+        border: 4px solid var(--accent) !important;
+        box-shadow: 0 10px 40px rgba(0, 255, 131, 0.3);
+    }
+    .player-profile-header h2 {
+        font-size: 2.2rem;
+        margin-top: 20px;
+        font-weight: 900;
+        letter-spacing: -1px;
+    }
+    .player-profile-rating-hero {
+        background: var(--accent-gradient);
+        color: #000;
+        display: inline-block;
+        padding: 8px 16px;
+        border-radius: 12px;
+        font-weight: 900;
+        font-size: 1.2rem;
+        margin-top: 10px;
+        box-shadow: 0 5px 15px rgba(0, 255, 131, 0.3);
+    }
+
+    .player-stats-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .player-stat-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.05);
+        border-radius: 16px;
+    }
+    .player-stat-row .label { color: var(--text-dim); font-size: 0.9rem; }
+    .player-stat-row .value { font-weight: 800; font-size: 1.1rem; color: #fff; }
+
+    /* Match Detail Mobile Redesign */
+    .match-detail-hero {
+        text-align: center;
+        padding: 30px 16px;
+        margin-bottom: 20px;
+    }
+    .match-detail-score {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 30px;
+        margin-bottom: 20px;
+    }
+    .match-detail-score .score { font-size: 4rem; font-weight: 900; }
+    .match-detail-score .vs { font-size: 1rem; color: var(--text-dim); }
+
+    .timeline-container {
+        position: relative;
+        padding-left: 20px;
+        border-left: 2px solid rgba(255,255,255,0.05);
+        margin-left: 10px;
+    }
+    .timeline-event {
+        position: relative;
+        margin-bottom: 24px !important;
+        padding-left: 20px;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        background: transparent !important;
+        border: none !important;
+    }
+    .timeline-event::before {
+        content: '';
+        position: absolute;
+        left: -27px;
+        top: 5px;
+        width: 12px;
+        height: 12px;
+        background: var(--accent);
+        border-radius: 50%;
+        box-shadow: 0 0 10px var(--accent);
+    }
+    .timeline-event .event-min { font-size: 0.8rem; color: var(--accent); font-weight: 800; }
+    .timeline-event .event-scorer { font-size: 1.1rem; margin-top: 4px; }
+    .timeline-event .event-team { font-size: 0.7rem; opacity: 0.6; text-transform: uppercase; }
 
     #match-studio-modal .modal-content.studio-large {
         background: #050505 !important;
@@ -360,6 +480,12 @@ h1 {
         align-items: center;
     }
 
+.rating-row-studio:active, .player-card:active, .match-card:active {
+        border-color: rgba(0, 255, 131, 0.6) !important;
+        box-shadow: 0 0 25px rgba(0, 255, 131, 0.3) !important;
+        background: rgba(0, 255, 131, 0.05) !important;
+    }
+
     input:focus, select:focus { border-color: var(--accent) !important; background: rgba(255,255,255,0.08) !important; }
     .chips-flex span { padding: 10px 14px !important; font-size: 0.9rem !important; }
     .mobile-only { display: block !important; }
@@ -385,14 +511,15 @@ h1 {
     visibility: visible;
 }
 .bottom-sheet-content {
-    background: #0d0d0d;
+    background: rgba(13, 13, 13, 0.95);
+    backdrop-filter: blur(25px);
     width: 100%;
     max-height: 85vh;
-    border-top: 1px solid rgba(0, 255, 157, 0.2);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 24px 24px 0 0;
     padding: 24px;
     padding-bottom: 40px;
-    box-shadow: 0 -20px 50px rgba(0,0,0,1);
+    box-shadow: 0 -20px 50px rgba(0,0,0,0.8);
     position: relative;
     overflow-y: auto;
 }

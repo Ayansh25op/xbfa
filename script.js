@@ -1,6 +1,7 @@
 import { supabase, supabaseUrl, anonKey } from './supabase.js'
 
 // --- GLOBAL STATE ---
+let isScrolling = false;
 let currentSeasonId = null;
 let currentSeasonName = "";
 let currentPage = "dashboard";
@@ -733,101 +734,186 @@ async function viewMatchDetail(id) {
         return players.find(x => x && x.id == pid)?.name || "N/A";
     };
 
-    // STEP 3: MAP RATINGS TO PLAYERS
     const getRating = (pid) => {
         const playerRating = (ratings || []).find(r => String(r.player_id) === String(pid));
         return playerRating ? playerRating.rating : "-";
     };
 
-    const renderLineup = (lineup, teamClass) => lineup.map(pid => {
-        const rating = getRating(pid);
-        return `
-            <div class="lineup-player-row ${teamClass}">
-                <div class="lineup-player-info">
-                    <i class="fas fa-user-circle"></i>
-                    <span>${getP(pid)}</span>
+    const isMobile = window.innerWidth <= 768;
+    let html = "";
+
+    if (isMobile) {
+        const renderMobileRatings = (lineup, teamClass) => lineup.map(pid => `
+            <div class="player-stat-row" style="background: rgba(255,255,255,0.03); margin-bottom: 8px;">
+                <span class="label" style="color: var(--${teamClass})">${getP(pid)}</span>
+                <span class="value" style="color: ${getRating(pid) >= 7 ? 'var(--accent)' : '#fff'}">${getRating(pid)}</span>
+            </div>
+        `).join('');
+
+        html = `
+            <span class="close-btn" id="closeMatchDetailBtn" onclick="toggleModal('match-detail-modal', false)">&times;</span>
+            <div class="match-detail-hero">
+                <div class="text-dim" style="font-size: 0.8rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px;">${match.title} • ${match.date}</div>
+                <div class="match-detail-score">
+                    <div style="color:var(--team-a)">
+                        <div style="font-size: 0.7rem; opacity: 0.6; font-weight: 800;">TEAM A</div>
+                        <div class="score">${match.score_a}</div>
+                    </div>
+                    <div class="vs">VS</div>
+                    <div style="color:var(--team-b)">
+                        <div style="font-size: 0.7rem; opacity: 0.6; font-weight: 800;">TEAM B</div>
+                        <div class="score">${match.score_b}</div>
+                    </div>
                 </div>
-                <!-- STEP 4: SHOW IN UI -->
-                <div class="lineup-player-rating" ${rating === '-' ? 'style="opacity:0.4"' : ''}>
-                    <i class="fas fa-star"></i> ${rating}
+            </div>
+
+            <div class="studio-section">
+                <div class="studio-section-title"><i class="fas fa-history" style="color: var(--accent)"></i> MATCH TIMELINE</div>
+                <div class="timeline-container">
+                    ${match.events.length > 0 ? match.events.map(ev => {
+                        let eventLabel = '<i class="fas fa-futbol"></i>';
+                        if (ev.ownGoal && ev.penalty) eventLabel = '<i class="fas fa-futbol"></i> (OG, PEN)';
+                        else if (ev.ownGoal) eventLabel = '<i class="fas fa-futbol"></i> (OG)';
+                        else if (ev.penalty) eventLabel = '<i class="fas fa-futbol"></i> (PEN)';
+
+                        return `
+                        <div class="timeline-event">
+                            <div class="event-min">${ev.min}'</div>
+                            <div class="event-info">
+                                <span class="event-scorer"><strong>${getP(ev.scorer)}</strong> ${eventLabel}</span>
+                            </div>
+                            <div class="event-team" style="color:${
+                                (ev.ownGoal ? (ev.team === 'A' ? 'var(--team-b)' : 'var(--team-a)') : (ev.team === 'A' ? 'var(--team-a)' : 'var(--team-b)'))
+                            }">
+                                TEAM ${ev.ownGoal ? (ev.team === 'A' ? 'B' : 'A') : ev.team}
+                            </div>
+                        </div>
+                    `}).join('') : '<p class="text-dim" style="padding:10px">No goals were recorded.</p>'}
+                </div>
+            </div>
+
+            <div class="studio-section">
+                <div class="studio-section-title"><i class="fas fa-star" style="color: gold"></i> PLAYER PERFORMANCE</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div>
+                        <div style="font-size: 0.7rem; color: var(--team-a); margin-bottom: 10px; font-weight: 800;">SQUAD A</div>
+                        ${renderMobileRatings(match.team_a, 'team-a')}
+                    </div>
+                    <div>
+                        <div style="font-size: 0.7rem; color: var(--team-b); margin-bottom: 10px; font-weight: 800;">SQUAD B</div>
+                        ${renderMobileRatings(match.team_b, 'team-b')}
+                    </div>
+                </div>
+            </div>
+
+            <div class="studio-section" style="margin-bottom: 30px !important;">
+                <div class="studio-section-title"><i class="fas fa-trophy" style="color: gold"></i> MATCH AWARDS</div>
+                <div class="awards-grid-modern" style="grid-template-columns: repeat(3, 1fr) !important; gap: 10px !important;">
+                    <div class="award-card-mini" style="padding: 12px 5px !important; background: rgba(255,215,0,0.05) !important;">
+                        <span class="award-label" style="font-size: 0.6rem !important;">MVP</span>
+                        <span class="award-winner" style="font-size: 0.75rem !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${getP(match.awards?.mvp)}</span>
+                    </div>
+                    <div class="award-card-mini lvp" style="padding: 12px 5px !important;">
+                        <span class="award-label" style="font-size: 0.6rem !important;">LVP</span>
+                        <span class="award-winner" style="font-size: 0.75rem !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${getP(match.awards?.lvp)}</span>
+                    </div>
+                    <div class="award-card-mini gk" style="padding: 12px 5px !important;">
+                        <span class="award-label" style="font-size: 0.6rem !important;">GK</span>
+                        <span class="award-winner" style="font-size: 0.75rem !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${getP(match.awards?.gk)}</span>
+                    </div>
                 </div>
             </div>
         `;
-    }).join('');
-
-    let html = `
-        <span class="close-btn" id="closeMatchDetailBtn">&times;</span>
-        
-        <div class="match-header-modern">
-            <div class="match-meta">${match.title} • ${match.date}</div>
-            <div class="score-display">
-                <div class="team-side">
-                    <div class="team-name-big" style="color:var(--team-a)">TEAM A</div>
-                    <div class="score-num">${match.score_a}</div>
-                </div>
-                <div class="vs-badge">VS</div>
-                <div class="team-side">
-                    <div class="team-name-big" style="color:var(--team-b)">TEAM B</div>
-                    <div class="score-num">${match.score_b}</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="lineup-grid">
-            <div class="lineup-column">
-                <h4><i class="fas fa-users"></i> Squad A</h4>
-                <div class="player-row-container">
-                    ${renderLineup(match.team_a, 'team-a')}
-                </div>
-            </div>
-            <div class="lineup-column">
-                <h4><i class="fas fa-users"></i> Squad B</h4>
-                <div class="player-row-container">
-                    ${renderLineup(match.team_b, 'team-b')}
-                </div>
-            </div>
-        </div>
-
-        <div class="detail-timeline-modern">
-            <h4><i class="fas fa-history"></i> MATCH EVENTS</h4>
-            <div class="timeline-list">
-                ${match.events.length > 0 ? match.events.map(ev => {
-                    let eventLabel = '<i class="fas fa-futbol"></i>';
-                    if (ev.ownGoal && ev.penalty) eventLabel = '(OG, PEN)';
-                    else if (ev.ownGoal) eventLabel = '(OG)';
-                    else if (ev.penalty) eventLabel = '(PEN)';
-
-                    return `
-                    <div class="timeline-event">
-                        <div class="event-min">${ev.min}'</div>
-                        <div class="event-info">
-                            <span class="event-scorer"><strong>${getP(ev.scorer)}</strong> ${eventLabel}</span>
-                        </div>
-                        <div class="event-team" style="color:${
-                            (ev.ownGoal ? (ev.team === 'A' ? 'var(--team-b)' : 'var(--team-a)') : (ev.team === 'A' ? 'var(--team-a)' : 'var(--team-b)'))
-                        }">
-                            TEAM ${ev.ownGoal ? (ev.team === 'A' ? 'B' : 'A') : ev.team}
-                        </div>
+    } else {
+        const renderLineup = (lineup, teamClass) => lineup.map(pid => {
+            const rating = getRating(pid);
+            return `
+                <div class="lineup-player-row ${teamClass}">
+                    <div class="lineup-player-info">
+                        <i class="fas fa-user-circle"></i>
+                        <span>${getP(pid)}</span>
                     </div>
-                `}).join('') : '<p class="text-dim" style="padding:20px">No goals were recorded in this match.</p>'}
-            </div>
-        </div>
+                    <div class="lineup-player-rating" ${rating === '-' ? 'style="opacity:0.4"' : ''}>
+                        <i class="fas fa-star"></i> ${rating}
+                    </div>
+                </div>
+            `;
+        }).join('');
 
-        <div class="awards-grid-modern">
-            <div class="award-card-mini">
-                <span class="award-label">MVP</span>
-                <span class="award-winner">${getP(match.awards?.mvp)}</span>
+        html = `
+            <span class="close-btn" id="closeMatchDetailBtn" onclick="toggleModal('match-detail-modal', false)">&times;</span>
+            
+            <div class="match-header-modern">
+                <div class="match-meta">${match.title} • ${match.date}</div>
+                <div class="score-display">
+                    <div class="team-side">
+                        <div class="team-name-big" style="color:var(--team-a)">TEAM A</div>
+                        <div class="score-num">${match.score_a}</div>
+                    </div>
+                    <div class="vs-badge">VS</div>
+                    <div class="team-side">
+                        <div class="team-name-big" style="color:var(--team-b)">TEAM B</div>
+                        <div class="score-num">${match.score_b}</div>
+                    </div>
+                </div>
             </div>
-            <div class="award-card-mini lvp">
-                <span class="award-label">LVP</span>
-                <span class="award-winner">${getP(match.awards?.lvp)}</span>
+
+            <div class="lineup-grid">
+                <div class="lineup-column">
+                    <h4><i class="fas fa-users"></i> Squad A</h4>
+                    <div class="player-row-container">
+                        ${renderLineup(match.team_a, 'team-a')}
+                    </div>
+                </div>
+                <div class="lineup-column">
+                    <h4><i class="fas fa-users"></i> Squad B</h4>
+                    <div class="player-row-container">
+                        ${renderLineup(match.team_b, 'team-b')}
+                    </div>
+                </div>
             </div>
-            <div class="award-card-mini gk">
-                <span class="award-label">BEST GK</span>
-                <span class="award-winner">${getP(match.awards?.gk)}</span>
+
+            <div class="detail-timeline-modern">
+                <h4><i class="fas fa-history"></i> MATCH EVENTS</h4>
+                <div class="timeline-list">
+                    ${match.events.length > 0 ? match.events.map(ev => {
+                        let eventLabel = '<i class="fas fa-futbol"></i>';
+                        if (ev.ownGoal && ev.penalty) eventLabel = '(OG, PEN)';
+                        else if (ev.ownGoal) eventLabel = '(OG)';
+                        else if (ev.penalty) eventLabel = '(PEN)';
+
+                        return `
+                        <div class="timeline-event">
+                            <div class="event-min">${ev.min}'</div>
+                            <div class="event-info">
+                                <span class="event-scorer"><strong>${getP(ev.scorer)}</strong> ${eventLabel}</span>
+                            </div>
+                            <div class="event-team" style="color:${
+                                (ev.ownGoal ? (ev.team === 'A' ? 'var(--team-b)' : 'var(--team-a)') : (ev.team === 'A' ? 'var(--team-a)' : 'var(--team-b)'))
+                            }">
+                                TEAM ${ev.ownGoal ? (ev.team === 'A' ? 'B' : 'A') : ev.team}
+                            </div>
+                        </div>
+                    `}).join('') : '<p class="text-dim" style="padding:20px">No goals were recorded in this match.</p>'}
+                </div>
             </div>
-        </div>
-    `;
+
+            <div class="awards-grid-modern">
+                <div class="award-card-mini" style="background: rgba(255,215,0,0.05);">
+                    <span class="award-label">MVP</span>
+                    <span class="award-winner">${getP(match.awards?.mvp)}</span>
+                </div>
+                <div class="award-card-mini lvp">
+                    <span class="award-label">LVP</span>
+                    <span class="award-winner">${getP(match.awards?.lvp)}</span>
+                </div>
+                <div class="award-card-mini gk">
+                    <span class="award-label">BEST GK</span>
+                    <span class="award-winner">${getP(match.awards?.gk)}</span>
+                </div>
+            </div>
+        `;
+    }
     
     document.getElementById('match-detail-body').innerHTML = html;
     toggleModal('match-detail-modal', true);
@@ -1259,6 +1345,17 @@ function setupEventListeners() {
     if (window.listenersInitialized) return;
     window.listenersInitialized = true;
 
+    // --- TOUCH GUARD (Prevent accidental taps while scrolling) ---
+    document.addEventListener("touchmove", () => {
+        isScrolling = true;
+    });
+
+    document.addEventListener("touchend", () => {
+        setTimeout(() => {
+            isScrolling = false;
+        }, 100);
+    });
+
     // Static Click Handlers
     const staticActions = {
         'openAddPlayerBtn': () => openPlayerStudio(),
@@ -1300,6 +1397,8 @@ function setupEventListeners() {
     }
 
     const handleModalInteraction = (e) => {
+        if (isScrolling) return;
+
         // --- Password Toggle Handler ---
         const passToggle = e.target.closest('.toggle-password');
         if (passToggle) {
@@ -1745,6 +1844,7 @@ function renderRatingsGrid(existingRatings = []) {
     if (isMobile && canRate) {
         container.querySelectorAll('.mobile-rating-tap').forEach(row => {
             row.addEventListener('click', () => {
+                if (isScrolling) return;
                 const pid = row.dataset.pid;
                 const name = row.dataset.name;
                 const currentVal = row.querySelector('.ms-player-rating').value;
@@ -1898,7 +1998,6 @@ async function viewProfile(id) {
     const p = players.find(x => x && String(x.id) === String(id));
     if (!p) return;
 
-    // STEP 5: PLAYER CARD (LATEST RATING)
     const { data: latestRatingData, error } = await supabase
         .from("match_ratings")
         .select("*")
@@ -1908,20 +2007,54 @@ async function viewProfile(id) {
         .single();
     
     const latestRating = latestRatingData ? latestRatingData.rating : null;
+    const isMobile = window.innerWidth <= 768;
 
-    document.getElementById('player-view-body').innerHTML = `
-        <div style="text-align:center">
-            <img src="${p.photo||'https://via.placeholder.com/150'}" style="width:120px; height:120px; border-radius:15px; border:3px solid var(--accent)">
-            <h2 style="margin-top:10px">${p.name}</h2>
-            <p class="accent-text" style="margin-bottom: 5px;">${p.pos} | Rating: ${p.rating}</p>
-            ${latestRating ? `<p class="text-dim" style="font-size: 0.8rem; margin-bottom: 15px;"><i class="fas fa-star" style="color: gold"></i> Latest Match Rating: <strong>${latestRating}</strong></p>` : ''}
-            
-            <div class="stats-summary-grid" style="margin-top:20px; grid-template-columns: repeat(3, 1fr);">
-                <div class="summary-card" style="border-left-color: gold;"><span class="label">Avg Rating</span><strong>⭐ ${p.avgRating || '0.0'}</strong></div>
-                <div class="summary-card"><span class="label">Goals</span><strong>${p.goals||0}</strong></div>
-                <div class="summary-card"><span class="label">Matches</span><strong>${p.matches||0}</strong></div>
+    if (isMobile) {
+        document.getElementById('player-view-body').innerHTML = `
+            <span class="close-btn" id="closePlayerViewBtn" onclick="toggleModal('player-modal', false)">&times;</span>
+            <div class="player-profile-header">
+                <img src="${p.photo||'https://via.placeholder.com/150'}" alt="${p.name}">
+                <h2>${p.name}</h2>
+                <div class="player-profile-rating-hero">${p.pos} • ${p.rating} RATING</div>
             </div>
-        </div>`;
+
+            <div class="player-stats-list">
+                <div class="player-stat-row">
+                    <span class="label">Average Rating</span>
+                    <span class="value">⭐ ${p.avgRating || '0.0'}</span>
+                </div>
+                <div class="player-stat-row">
+                    <span class="label">Total Goals</span>
+                    <span class="value">${p.goals||0}</span>
+                </div>
+                <div class="player-stat-row">
+                    <span class="label">Matches Played</span>
+                    <span class="value">${p.matches||0}</span>
+                </div>
+                ${latestRating ? `
+                <div class="player-stat-row" style="background: rgba(255, 215, 0, 0.05); border-color: rgba(255, 215, 0, 0.2);">
+                    <span class="label" style="color: gold">Latest Match Rating</span>
+                    <span class="value" style="color: gold">${latestRating}</span>
+                </div>
+                ` : ''}
+            </div>
+        `;
+    } else {
+        document.getElementById('player-view-body').innerHTML = `
+            <span class="close-btn" id="closePlayerViewBtn" onclick="toggleModal('player-modal', false)">&times;</span>
+            <div style="text-align:center">
+                <img src="${p.photo||'https://via.placeholder.com/150'}" style="width:120px; height:120px; border-radius:15px; border:3px solid var(--accent)">
+                <h2 style="margin-top:10px">${p.name}</h2>
+                <p class="accent-text" style="margin-bottom: 5px;">${p.pos} | Rating: ${p.rating}</p>
+                ${latestRating ? `<p class="text-dim" style="font-size: 0.8rem; margin-bottom: 15px;"><i class="fas fa-star" style="color: gold"></i> Latest Match Rating: <strong>${latestRating}</strong></p>` : ''}
+                
+                <div class="stats-summary-grid" style="margin-top:20px; grid-template-columns: repeat(3, 1fr);">
+                    <div class="summary-card" style="border-left-color: gold;"><span class="label">Avg Rating</span><strong>⭐ ${p.avgRating || '0.0'}</strong></div>
+                    <div class="summary-card"><span class="label">Goals</span><strong>${p.goals||0}</strong></div>
+                    <div class="summary-card"><span class="label">Matches</span><strong>${p.matches||0}</strong></div>
+                </div>
+            </div>`;
+    }
     toggleModal('player-modal', true);
 }
 
@@ -2192,6 +2325,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // Mobile FAB listener
     document.getElementById('mobile-fab')?.addEventListener('click', () => {
+        if (isScrolling) return;
         if (currentPage === 'squad') openPlayerStudio();
         if (currentPage === 'matches') openMatchStudio();
     });
@@ -2474,12 +2608,14 @@ function toggleBottomSheet(show, content = "") {
 
 // Close bottom sheet when clicking background or handle
 document.addEventListener('touchstart', (e) => {
+    if (isScrolling) return;
     const bs = document.getElementById('bottom-sheet');
     if (e.target.id === 'bottom-sheet' || e.target.classList.contains('bottom-sheet-handle')) {
         toggleBottomSheet(false);
     }
 });
 document.addEventListener('click', (e) => {
+    if (isScrolling) return;
     const bs = document.getElementById('bottom-sheet');
     if (e.target.id === 'bottom-sheet' || e.target.classList.contains('bottom-sheet-handle')) {
         toggleBottomSheet(false);
@@ -2530,6 +2666,7 @@ function openGoalBottomSheet(initialData = null) {
     if (initialData?.scorer) document.getElementById('bs-goal-scorer').value = initialData.scorer;
 
     document.getElementById('bs-goal-confirm').onclick = () => {
+        if (isScrolling) return;
         const min = document.getElementById('bs-goal-min').value;
         const scorer = document.getElementById('bs-goal-scorer').value;
         const og = document.getElementById('bs-goal-og').checked;
@@ -2562,6 +2699,7 @@ function openRatingPickerBottomSheet(pid, pName, currentVal) {
 
     document.querySelectorAll('.rating-choice-btn').forEach(btn => {
         btn.onclick = () => {
+            if (isScrolling) return;
             const val = btn.dataset.val;
             const input = document.querySelector(`.ms-player-rating[data-player-id="${pid}"]`);
             if (input) {
