@@ -396,6 +396,20 @@ function navigateTo(page) {
         el.classList.toggle('active', el.dataset.page === page);
     });
 
+    // FAB LOGIC
+    const fab = document.getElementById('mobile-fab');
+    if (fab) {
+        if (page === 'squad') {
+            fab.style.display = 'flex';
+            fab.innerHTML = '<i class="fas fa-user-plus"></i>';
+        } else if (page === 'matches') {
+            fab.style.display = 'flex';
+            fab.innerHTML = '<i class="fas fa-plus-circle"></i>';
+        } else {
+            fab.style.display = 'none';
+        }
+    }
+
     renderAll();
     window.scrollTo(0, 0); // Reset scroll on page switch
 }
@@ -2175,6 +2189,12 @@ window.addEventListener('DOMContentLoaded', () => {
     if (name) name.oninput = updateLivePreview;
     if (number) number.oninput = updateLivePreview;
     if (rating) rating.oninput = updateLivePreview;
+
+    // Mobile FAB listener
+    document.getElementById('mobile-fab')?.addEventListener('click', () => {
+        if (currentPage === 'squad') openPlayerStudio();
+        if (currentPage === 'matches') openMatchStudio();
+    });
 });
 
 // Delete match function
