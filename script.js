@@ -697,16 +697,27 @@ function renderMatches() {
 }
 
 // --- MODERN MATCH DETAIL VIEW ---
-function viewMatchDetail(id) {
-    const m = matches.find(x => x && x.id == id);
-    if (!m) return;
+async function viewMatchDetail(id) {
+    const match = matches.find(x => x && x.id == id);
+    if (!match) return;
+
+    // STEP 2: FETCH RATINGS WITH MATCH
+    const { data: ratings, error } = await supabase
+        .from("match_ratings")
+        .select("*")
+        .eq("match_id", id);
+    
+    if (error) console.error("Error fetching match ratings:", error);
+
     const getP = (pid) => {
         if (!pid) return "N/A";
         return players.find(x => x && x.id == pid)?.name || "N/A";
     };
+
+    // STEP 3: MAP RATINGS TO PLAYERS
     const getRating = (pid) => {
-        const r = (m.ratings || []).find(x => String(x.player_id) === String(pid));
-        return r ? r.rating : null;
+        const playerRating = (ratings || []).find(r => String(r.player_id) === String(pid));
+        return playerRating ? playerRating.rating : "-";
     };
 
     const renderLineup = (lineup, teamClass) => lineup.map(pid => {
@@ -717,11 +728,10 @@ function viewMatchDetail(id) {
                     <i class="fas fa-user-circle"></i>
                     <span>${getP(pid)}</span>
                 </div>
-                ${rating ? `
-                    <div class="lineup-player-rating">
-                        <i class="fas fa-star"></i> ${rating}
-                    </div>
-                ` : `<div class="lineup-player-rating" style="opacity:0.2; border:none; background:none; box-shadow:none;">NR</div>`}
+                <!-- STEP 4: SHOW IN UI -->
+                <div class="lineup-player-rating" ${rating === '-' ? 'style="opacity:0.4"' : ''}>
+                    <i class="fas fa-star"></i> ${rating}
+                </div>
             </div>
         `;
     }).join('');
@@ -730,16 +740,16 @@ function viewMatchDetail(id) {
         <span class="close-btn" id="closeMatchDetailBtn">&times;</span>
         
         <div class="match-header-modern">
-            <div class="match-meta">${m.title} • ${m.date}</div>
+            <div class="match-meta">${match.title} • ${match.date}</div>
             <div class="score-display">
                 <div class="team-side">
                     <div class="team-name-big" style="color:var(--team-a)">TEAM A</div>
-                    <div class="score-num">${m.score_a}</div>
+                    <div class="score-num">${match.score_a}</div>
                 </div>
                 <div class="vs-badge">VS</div>
                 <div class="team-side">
                     <div class="team-name-big" style="color:var(--team-b)">TEAM B</div>
-                    <div class="score-num">${m.score_b}</div>
+                    <div class="score-num">${match.score_b}</div>
                 </div>
             </div>
         </div>
@@ -748,13 +758,13 @@ function viewMatchDetail(id) {
             <div class="lineup-column">
                 <h4><i class="fas fa-users"></i> Squad A</h4>
                 <div class="player-row-container">
-                    ${renderLineup(m.team_a, 'team-a')}
+                    ${renderLineup(match.team_a, 'team-a')}
                 </div>
             </div>
             <div class="lineup-column">
                 <h4><i class="fas fa-users"></i> Squad B</h4>
                 <div class="player-row-container">
-                    ${renderLineup(m.team_b, 'team-b')}
+                    ${renderLineup(match.team_b, 'team-b')}
                 </div>
             </div>
         </div>
@@ -762,7 +772,7 @@ function viewMatchDetail(id) {
         <div class="detail-timeline-modern">
             <h4><i class="fas fa-history"></i> MATCH EVENTS</h4>
             <div class="timeline-list">
-                ${m.events.length > 0 ? m.events.map(ev => {
+                ${match.events.length > 0 ? match.events.map(ev => {
                     let eventLabel = '<i class="fas fa-futbol"></i>';
                     if (ev.ownGoal && ev.penalty) eventLabel = '(OG, PEN)';
                     else if (ev.ownGoal) eventLabel = '(OG)';
@@ -787,15 +797,15 @@ function viewMatchDetail(id) {
         <div class="awards-grid-modern">
             <div class="award-card-mini">
                 <span class="award-label">MVP</span>
-                <span class="award-winner">${getP(m.awards?.mvp)}</span>
+                <span class="award-winner">${getP(match.awards?.mvp)}</span>
             </div>
             <div class="award-card-mini lvp">
                 <span class="award-label">LVP</span>
-                <span class="award-winner">${getP(m.awards?.lvp)}</span>
+                <span class="award-winner">${getP(match.awards?.lvp)}</span>
             </div>
             <div class="award-card-mini gk">
                 <span class="award-label">BEST GK</span>
-                <span class="award-winner">${getP(m.awards?.gk)}</span>
+                <span class="award-winner">${getP(match.awards?.gk)}</span>
             </div>
         </div>
     `;
@@ -949,11 +959,15 @@ function createCardHTML(p) {
                 <div class="pos">${p.pos}</div>
             </div>
 
-            ${p.latestRating ? `
+            ${p.latestRating !== null && p.latestRating !== undefined ? `
             <div class="card-rating-badge">
                 <i class="fas fa-star"></i> ${p.latestRating}
             </div>
-            ` : ``}
+            ` : `
+            <div class="card-rating-badge" style="opacity: 0.3; border-color: rgba(255,255,255,0.1); color: var(--text-dim);">
+                <i class="fas fa-star"></i> -
+            </div>
+            `}
             
             <!-- Large Background Jersey Number -->
             <div class="card-number ${posClass}">${p.jersey_number || ''}</div>
@@ -1796,17 +1810,34 @@ function editMatch(id) {
 }
 
 // --- PLAYER VIEW ---
-function viewProfile(id) {
+async function viewProfile(id) {
     const p = players.find(x => x && String(x.id) === String(id));
     if (!p) return;
+
+    // STEP 5: PLAYER CARD (LATEST RATING)
+    const { data: latestRatingData, error } = await supabase
+        .from("match_ratings")
+        .select("*")
+        .eq("player_id", id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+    
+    const latestRating = latestRatingData ? latestRatingData.rating : null;
+
     document.getElementById('player-view-body').innerHTML = `
-        <div style="text-align:center"><img src="${p.photo||'https://via.placeholder.com/150'}" style="width:120px; height:120px; border-radius:15px; border:3px solid var(--accent)">
-        <h2 style="margin-top:10px">${p.name}</h2><p class="accent-text">${p.pos} | Rating: ${p.rating}</p>
-        <div class="stats-summary-grid" style="margin-top:20px; grid-template-columns: repeat(3, 1fr);">
-            <div class="summary-card" style="border-left-color: gold;"><span class="label">Avg Rating</span><strong>⭐ ${p.avgRating || '0.0'}</strong></div>
-            <div class="summary-card"><span class="label">Goals</span><strong>${p.goals||0}</strong></div>
-            <div class="summary-card"><span class="label">Matches</span><strong>${p.matches||0}</strong></div>
-        </div></div>`;
+        <div style="text-align:center">
+            <img src="${p.photo||'https://via.placeholder.com/150'}" style="width:120px; height:120px; border-radius:15px; border:3px solid var(--accent)">
+            <h2 style="margin-top:10px">${p.name}</h2>
+            <p class="accent-text" style="margin-bottom: 5px;">${p.pos} | Rating: ${p.rating}</p>
+            ${latestRating ? `<p class="text-dim" style="font-size: 0.8rem; margin-bottom: 15px;"><i class="fas fa-star" style="color: gold"></i> Latest Match Rating: <strong>${latestRating}</strong></p>` : ''}
+            
+            <div class="stats-summary-grid" style="margin-top:20px; grid-template-columns: repeat(3, 1fr);">
+                <div class="summary-card" style="border-left-color: gold;"><span class="label">Avg Rating</span><strong>⭐ ${p.avgRating || '0.0'}</strong></div>
+                <div class="summary-card"><span class="label">Goals</span><strong>${p.goals||0}</strong></div>
+                <div class="summary-card"><span class="label">Matches</span><strong>${p.matches||0}</strong></div>
+            </div>
+        </div>`;
     toggleModal('player-modal', true);
 }
 
