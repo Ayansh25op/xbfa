@@ -941,9 +941,9 @@ async function renderAwards() {
     }
 
     container.innerHTML = awards.map(a => {
-        const winner = players.find(p => p && String(p.id) === String(a.player_id));
-        const photo = winner ? winner.photo : 'https://via.placeholder.com/150?text=No+Winner';
-        const name = winner ? winner.name : '<span class="no-winner-msg">No winner selected</span>';
+    const winner = players.find(p => p && String(p.id) === String(a.player_id));
+    const photo = winner ? winner.photo : 'https://via.placeholder.com/150?text=Not+Assigned';
+    const name = winner ? winner.name : '<span class="no-winner-msg" style="color: var(--text-dim); opacity: 0.5;">TBD (Not Assigned)</span>';
 
         return `
         <div class="award-card-modern">
@@ -978,7 +978,7 @@ async function openAwardStudio(id = null) {
 
     // Populate Player Selector
     const playerSelect = document.getElementById('as-player');
-    playerSelect.innerHTML = '<option value="">Choose Winner</option>' + 
+    playerSelect.innerHTML = '<option value="">None (Assign Later)</option>' + 
         players.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
 
     if (id) {
@@ -1001,10 +1001,10 @@ async function handleSaveAward() {
 
     const id = document.getElementById('as-id').value;
     const name = document.getElementById('as-name').value.trim();
-    const player_id = document.getElementById('as-player').value;
+    const player_id = document.getElementById('as-player').value || null;
 
-    if (!name || !player_id) {
-        showAlertModal("Please fill in all fields");
+    if (!name) {
+        showAlertModal("Please provide an award title");
         return;
     }
 
