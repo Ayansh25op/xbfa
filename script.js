@@ -36,6 +36,7 @@ function hasPermission(permission) {
 // --- AUTH & SESSION ---
 let session = null;
 let userRole = "visitor";
+let userSeasonAccess = [];
 const ADMIN_EMAIL = "admin@xbfa.com";
 
 async function checkAuth() {
@@ -47,17 +48,19 @@ async function checkAuth() {
         return;
     }
 
-    // Role Check
+    // Role & Access Check
     if (session.user.email === ADMIN_EMAIL) {
         userRole = "admin";
+        userSeasonAccess = ["*"]; // Special all-access key for admin
     } else {
         // Fallback to database check for other users
-        const { data: roleData } = await supabase.from('user_roles')
-            .select('role')
+        const { data: userData } = await supabase.from('user_roles')
+            .select('role, season_access')
             .eq('user_id', session.user.id)
             .single();
 
-        userRole = roleData ? roleData.role : "visitor";
+        userRole = userData ? userData.role : "visitor";
+        userSeasonAccess = userData && userData.season_access ? userData.season_access : ["CHAOS"];
     }
 
     await init();
@@ -88,26 +91,37 @@ let editingMatchId = null;
 // ===== SUPABASE DATA LOGIC =====
 
 async function loadSeasons() {
-    const { data, error } = await supabase.from('seasons').select('*').order('name');
+    const { data: allSeasons, error } = await supabase.from('seasons').select('*').order('name');
     if (error) {
         console.error("Error loading seasons:", error);
-        seasons = [{ id: "season_default", name: "Season 1" }];
-    } else if (data && data.length > 0) {
-        seasons = data;
+        seasons = [{ id: "season_default", name: "Season 1", key: "CHAOS" }];
+    } else if (allSeasons && allSeasons.length > 0) {
+        // Filter based on access
+        if (userRole === 'admin' || userSeasonAccess.includes('*')) {
+            seasons = allSeasons;
+        } else {
+            seasons = allSeasons.filter(s => userSeasonAccess.includes(s.key) || s.key === 'CHAOS');
+        }
+
+        // If filtering results in empty, fallback to CHAOS or first available
+        if (seasons.length === 0 && allSeasons.length > 0) {
+            seasons = allSeasons.filter(s => s.key === 'CHAOS');
+            if (seasons.length === 0) seasons = [allSeasons[0]];
+        }
     } else {
         // Initial setup if empty
-        const { data: newData, error: newError } = await supabase.from('seasons').insert([{ name: "Season 1" }]).select();
+        const { data: newData, error: newError } = await supabase.from('seasons').insert([{ name: "Season 1", key: "CHAOS" }]).select();
         if (newError) {
-            seasons = [{ id: "season_default", name: "Season 1" }];
+            seasons = [{ id: "season_default", name: "Season 1", key: "CHAOS" }];
         } else {
             seasons = newData;
         }
     }
 
     if (!currentSeasonId || !seasons.find(s => s.id == currentSeasonId)) {
-        currentSeasonId = seasons[0].id;
+        currentSeasonId = seasons.length > 0 ? seasons[0].id : "season_default";
     }
-    currentSeasonName = seasons.find(s => s.id == currentSeasonId)?.name || seasons[0].name;
+    currentSeasonName = seasons.find(s => s.id == currentSeasonId)?.name || (seasons[0]?.name || "N/A");
 }
 
 async function loadPlayers() {
@@ -510,6 +524,15 @@ async function renderAdminDashboard() {
         if (userRole === 'admin') profileRoleBadgeEl.style.color = '#00ff9c';
         else if (userRole === 'editor') profileRoleBadgeEl.style.color = '#00eaff';
         else profileRoleBadgeEl.style.color = 'var(--text-dim)';
+    }
+
+    const accessInfoEl = document.getElementById('profile-access-info');
+    if (accessInfoEl) {
+        if (userRole === 'admin' || userSeasonAccess.includes('*')) {
+            accessInfoEl.innerText = "All Seasons";
+        } else {
+            accessInfoEl.innerText = `Seasons: ${userSeasonAccess.join(', ') || 'CHAOS'}`;
+        }
     }
 }
 
@@ -1503,11 +1526,13 @@ function setupEventListeners() {
         }
 
         // User Actions
-        const saveRole = target.closest('.action-save-role');
-        if (saveRole) {
-            const uid = saveRole.dataset.id;
-            const select = document.querySelector(`.role-select[data-id="${uid}"]`);
-            if (select) updateUserRole(uid, select.value);
+        const saveUser = target.closest('.action-save-user-config');
+        if (saveUser) {
+            const uid = saveUser.dataset.id;
+            const roleSelect = document.getElementById(`role-select-${uid}`);
+            const checkboxes = document.querySelectorAll(`.user-access-cb-${uid}:checked`);
+            const accessArr = Array.from(checkboxes).map(cb => cb.value);
+            if (roleSelect) updateUserConfig(uid, roleSelect.value, accessArr);
             if (e.type === 'touchstart') e.preventDefault();
             return;
         }
@@ -2143,6 +2168,9 @@ async function renderSeasonManager() {
                     <div id="name-edit-${s.id}" style="display:none">
                         <input type="text" id="name-input-${s.id}" class="season-name-input action-save-season-rename-input" data-id="${s.id}" value="${s.name}">
                     </div>
+                    <div style="font-size: 0.7rem; color: var(--accent); margin-top: 4px; opacity: 0.6;">
+                        KEY: ${s.key || 'NONE'}
+                    </div>
                 </div>
             </div>
 
@@ -2270,12 +2298,14 @@ async function addSeasonFromManager() {
         return;
     }
     const input = document.getElementById('sm-new-name');
+    const keyInput = document.getElementById('sm-new-key');
     const name = input.value.trim();
+    const key = keyInput ? keyInput.value.trim().toUpperCase() : null;
     
     if (!name) return;
 
     try {
-        const { data, error } = await supabase.from('seasons').insert([{ name }]).select();
+        const { data, error } = await supabase.from('seasons').insert([{ name, key }]).select();
         if (error) throw error;
 
         currentSeasonId = data[0].id;
@@ -2433,22 +2463,32 @@ async function loadUsers() {
 
     const list = document.getElementById('user-list-container');
     const countEl = document.getElementById('user-count');
+    const createSeasonKeysContainer = document.getElementById('um-season-checkboxes');
     if (!list) return;
 
-    list.innerHTML = `<div style="text-align:center; padding:20px; opacity:0.5;">Loading users...</div>`;
+    // Inject checkboxes for "Create New User" form
+    if (createSeasonKeysContainer) {
+        const availableKeys = [...new Set(seasons.map(s => s.key).filter(k => k))];
+        if (!availableKeys.includes('CHAOS')) availableKeys.push('CHAOS');
+        
+        createSeasonKeysContainer.innerHTML = availableKeys.map(key => `
+            <label class="season-checkbox-item">
+                <input type="checkbox" name="um-create-season" value="${key}" ${key === 'CHAOS' ? 'checked' : ''}>
+                <span class="season-checkbox-label">${key}</span>
+            </label>
+        `).join('');
+    }
+
+    list.innerHTML = `<div style="text-align:center; padding:20px; opacity:0.5;">Loading accounts...</div>`;
 
     try {
         const { data: users, error } = await supabase
             .from('user_roles')
-            .select('user_id, role, email');
+            .select('user_id, role, email, season_access')
+            .order('email');
 
-        if (error) {
-            console.error("Error loading users (fetching user_roles):", error);
-            list.innerHTML = `<div style="text-align:center; padding:20px; color:var(--red);">Failed to load users.</div>`;
-            return;
-        }
+        if (error) throw error;
 
-        console.log("Fetched Users from user_roles:", users);
         countEl.innerText = `${users.length} Users`;
 
         if (users.length === 0) {
@@ -2456,36 +2496,76 @@ async function loadUsers() {
             return;
         }
 
-        const roleOptions = Object.keys(ROLE_PERMISSIONS).map(r => 
+        const roleOptions = ['viewer', 'journalist', 'match_rater', 'editor', 'admin'].map(r => 
             `<option value="${r}">${r.replace('_', ' ').toUpperCase()}</option>`
         ).join('');
 
-        list.innerHTML = users.map(u => `
-            <div class="glass-card" style="padding: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.05); gap: 10px;">
-                <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; overflow: hidden;">
-                    <span style="font-weight: 500; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${u.email || 'Email missing (' + u.user_id.substring(0,8) + '...)'}</span>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <select class="role-select" data-id="${u.user_id}" style="font-size: 0.7rem; padding: 4px; background: rgba(0,0,0,0.3); color: var(--accent); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px;">
-                            ${roleOptions.split('value="' + u.role + '"').join('value="' + u.role + '" selected')}
+        const availableKeys = [...new Set(seasons.map(s => s.key).filter(k => k))];
+        if (!availableKeys.includes('CHAOS')) availableKeys.push('CHAOS');
+
+        list.innerHTML = users.map(u => {
+            const userAccess = u.season_access || [];
+            const roleClass = `role-${u.role}`;
+
+            return `
+            <div class="user-card-modern">
+                <!-- USER HEADER -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div style="flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div class="role-badge ${roleClass}">${u.role}</div>
+                            <span style="font-weight: 700; font-size: 0.95rem; color: #fff;">${u.email || 'System User'}</span>
+                        </div>
+                        <div class="access-chip-grid" id="access-badges-${u.user_id}">
+                            ${userAccess.map(k => `<span class="access-chip">${k}</span>`).join('')}
+                            ${userAccess.length === 0 ? '<span style="font-size: 0.6rem; opacity: 0.4;">No seasons assigned</span>' : ''}
+                        </div>
+                    </div>
+                    <button class="btn-danger action-delete-user" data-id="${u.user_id}" style="padding: 10px; min-width: auto; height: auto; border-radius: 12px; margin-left: 10px;">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+
+                <div style="height: 1px; background: rgba(255,255,255,0.05); margin: 5px 0;"></div>
+
+                <!-- CONFIGURATION PANEL -->
+                <div style="display: grid; grid-template-columns: 140px 1fr; gap: 20px;">
+                    <div class="input-group-styled">
+                        <label style="font-size: 0.65rem; margin-bottom: 6px; letter-spacing: 0.5px;">ROLE</label>
+                        <select class="role-select" id="role-select-${u.user_id}" style="padding: 8px; font-size: 0.75rem;" onchange="this.closest('.user-card-modern').classList.add('pending-save')">
+                            ${roleOptions.split(`value="${u.role}"`).join(`value="${u.role}" selected`)}
                         </select>
-                        <button class="btn-neon action-save-role" data-id="${u.user_id}" style="padding: 4px 8px; font-size: 0.6rem; margin: 0; min-width: auto; height: auto;">
-                            <i class="fas fa-save"></i>
-                        </button>
+                    </div>
+
+                    <div>
+                        <label style="font-size: 0.65rem; display: block; margin-bottom: 8px; color: var(--accent); font-weight: 800; letter-spacing: 0.5px;">
+                            SEASON ACCESS
+                        </label>
+                        <div class="season-checkbox-group">
+                            ${availableKeys.map(key => `
+                                <label class="season-checkbox-item">
+                                    <input type="checkbox" class="user-access-cb-${u.user_id}" value="${key}" ${userAccess.includes(key) ? 'checked' : ''} onchange="this.closest('.user-card-modern').classList.add('pending-save')">
+                                    <span class="season-checkbox-label">${key}</span>
+                                </label>
+                            `).join('')}
+                        </div>
                     </div>
                 </div>
-                <button class="btn-danger action-delete-user" data-id="${u.user_id}" style="padding: 6px 10px; font-size: 0.7rem; min-width: auto;">
-                    <i class="fas fa-trash"></i>
+
+                <button class="btn-neon action-save-user-config" data-id="${u.user_id}" style="width: 100%; margin: 0; padding: 10px; font-size: 0.75rem; font-weight: 800; border-radius: 10px;">
+                    <i class="fas fa-save"></i> SYNC PERMISSIONS
                 </button>
             </div>
-        `).join('');
+            `;
+        }).join('');
 
     } catch (err) {
         console.error("Error loading users:", err);
-        list.innerHTML = `<div style="text-align:center; padding:20px; color:var(--red);">Failed to load users.</div>`;
+        list.innerHTML = `<div style="text-align:center; padding:20px; color:var(--red);">Failed to fetch user list.</div>`;
     }
 }
 
-async function updateUserRole(userId, newRole) {
+async function updateUserConfig(userId, newRole, accessArr) {
     if (!hasPermission('adminOnly')) {
         showAlertModal("Unauthorized: Admin access required.");
         return;
@@ -2494,19 +2574,31 @@ async function updateUserRole(userId, newRole) {
     try {
         const { error } = await supabase
             .from('user_roles')
-            .update({ role: newRole })
+            .update({ 
+                role: newRole, 
+                season_access: accessArr 
+            })
             .eq('user_id', userId);
 
         if (error) throw error;
 
         // Also update profiles if present
-        await supabase.from('profiles').update({ role: newRole }).eq('id', userId);
+        await supabase.from('profiles').update({ 
+            role: newRole, 
+            season_access: accessArr 
+        }).eq('id', userId);
 
-        showAlertModal("Role updated successfully!");
+        // If it's the current user, update local state
+        if (session && session.user.id === userId) {
+            userRole = newRole;
+            userSeasonAccess = accessArr;
+        }
+
+        showAlertModal("User configuration updated successfully!");
         await loadUsers();
     } catch (err) {
-        console.error("Update Role Error:", err);
-        showAlertModal("Error updating role: " + err.message);
+        console.error("Update Config Error:", err);
+        showAlertModal("Error updating configuration: " + err.message);
     }
 }
 
@@ -2519,6 +2611,10 @@ async function createUser() {
     const email = document.getElementById('um-email').value.trim();
     const password = document.getElementById('um-password').value.trim();
     const role = document.getElementById('um-role').value;
+    
+    // Get checkbox values
+    const checkboxes = document.querySelectorAll('input[name="um-create-season"]:checked');
+    const season_access = Array.from(checkboxes).map(cb => cb.value);
 
     if (!email || !password) {
         showAlertModal("Please enter both email and password.");
@@ -2536,7 +2632,7 @@ async function createUser() {
                 'Authorization': `Bearer ${session.access_token}`,
                 'apikey': anonKey
             },
-            body: JSON.stringify({ email, password, role })
+            body: JSON.stringify({ email, password, role, season_access })
         });
 
         const text = await response.text();
@@ -2555,6 +2651,7 @@ async function createUser() {
         showAlertModal("User created successfully!");
         document.getElementById('um-email').value = "";
         document.getElementById('um-password').value = "";
+        document.getElementById('um-access').value = "";
         await loadUsers();
 
     } catch (err) {

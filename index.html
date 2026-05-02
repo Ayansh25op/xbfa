@@ -282,6 +282,10 @@
                                 <span class="label">Status</span>
                                 <span class="value" style="color: var(--accent);">Active</span>
                             </div>
+                            <div class="profile-row" id="profile-access-row">
+                                <span class="label">Access</span>
+                                <span class="value" id="profile-access-info" style="font-size: 0.7rem; opacity: 0.8;">---</span>
+                            </div>
                         </div>
                         <button class="btn-outline w-100" id="logoutBtn" style="margin-top: 10px;">
                             <i class="fas fa-sign-out-alt"></i> Logout
@@ -525,29 +529,45 @@
             </div>
             
             <!-- CREATE USER FORM -->
-            <div class="form-section glass-card" style="margin-bottom: 30px; padding: 20px;">
-                <h4 style="margin-top: 0; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
-                    <i class="fas fa-plus"></i> Create New User
+            <div class="form-section glass-card" style="margin-bottom: 30px; padding: 25px;">
+                <h4 style="margin-top: 0; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px; display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-user-plus" style="color: var(--accent);"></i> Create New User
                 </h4>
-                <div class="input-group-styled">
-                    <div style="display: flex; flex-direction: column; gap: 12px;">
-                        <input type="email" id="um-email" placeholder="Email Address" required>
-                        <input type="password" id="um-password" placeholder="Password" required>
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <label style="font-size: 0.8rem; opacity: 0.7; flex: 1;">Assign Role:</label>
-                            <select id="um-role" style="flex: 2;">
-                                <option value="viewer">Viewer</option>
-                                <option value="editor">Editor</option>
-                                <option value="match_rater">Match Rater</option>
-                                <option value="journalist">Journalist</option>
-                                <option value="admin">Admin</option>
-                            </select>
-                        </div>
-                        <button class="btn-neon w-100" id="createUserBtn" style="margin-top: 5px;">
-                            <i class="fas fa-user-plus"></i> Create Account
-                        </button>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                    <div class="input-group-styled">
+                        <label>Email Address</label>
+                        <input type="email" id="um-email" placeholder="user@example.com" required>
+                    </div>
+                    <div class="input-group-styled">
+                        <label>Password</label>
+                        <input type="password" id="um-password" placeholder="••••••••" required>
                     </div>
                 </div>
+
+                <div class="input-group-styled" style="margin-bottom: 20px;">
+                    <label>Assigned Role</label>
+                    <select id="um-role">
+                        <option value="viewer">Viewer</option>
+                        <option value="editor">Editor</option>
+                        <option value="match_rater">Match Rater</option>
+                        <option value="journalist">Journalist</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+
+                <div class="form-section" style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                    <label style="font-size: 0.75rem; color: var(--accent); font-weight: 700; margin-bottom: 10px; display: block;">
+                        <i class="fas fa-key"></i> Season Access Permissions
+                    </label>
+                    <div id="um-season-checkboxes" class="season-checkbox-group">
+                        <!-- JS Injected Season Checkboxes -->
+                    </div>
+                </div>
+
+                <button class="btn-neon w-100" id="createUserBtn" style="margin-top: 20px; font-weight: 800; letter-spacing: 1px;">
+                    <i class="fas fa-plus-circle"></i> INITIALIZE ACCOUNT
+                </button>
             </div>
 
             <!-- USER LIST -->
@@ -577,7 +597,8 @@
 
         <!-- CREATE NEW SEASON -->
         <div class="season-create-banner" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-            <input type="text" id="sm-new-name" placeholder="New Season Name" style="flex: 1; min-width: 200px;">
+            <input type="text" id="sm-new-name" placeholder="New Season Name" style="flex: 2; min-width: 150px;">
+            <input type="text" id="sm-new-key" placeholder="Key (e.g. 10A)" style="flex: 1; min-width: 100px;">
             <button id="createSeasonBtn" class="btn-neon">Create Season</button>
         </div>
 
