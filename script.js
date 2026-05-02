@@ -88,38 +88,15 @@ let editingMatchId = null;
 // ===== SUPABASE DATA LOGIC =====
 
 async function loadSeasons() {
-    const { data: allSeasons, error } = await supabase.from('seasons').select('*').order('name');
-    
+    const { data, error } = await supabase.from('seasons').select('*').order('name');
     if (error) {
         console.error("Error loading seasons:", error);
         seasons = [{ id: "season_default", name: "Season 1" }];
-    } else if (allSeasons && allSeasons.length > 0) {
-        // --- Frontend Access Filtering ---
-        if (userRole === 'admin') {
-            seasons = allSeasons;
-        } else {
-            // FETCH USER ACCESS (Step 1)
-            const { data: accessData } = await supabase
-                .from('season_access')
-                .select('season_id')
-                .eq('user_id', session.user.id);
-            
-            const accessList = accessData ? accessData.map(a => a.season_id) : [];
-            
-            // FILTER SEASONS (Step 2)
-            seasons = allSeasons.filter(s => 
-                s.is_public === true || accessList.includes(s.id)
-            );
-        }
-
-        // If filtering leaves us with nothing (unlikely due to is_public), fallback
-        if (seasons.length === 0 && allSeasons.length > 0 && userRole !== 'admin') {
-             // Try to show at least public ones if something went wrong with the logic
-             seasons = allSeasons.filter(s => s.is_public === true);
-        }
+    } else if (data && data.length > 0) {
+        seasons = data;
     } else {
         // Initial setup if empty
-        const { data: newData, error: newError } = await supabase.from('seasons').insert([{ name: "Season 1", is_public: true }]).select();
+        const { data: newData, error: newError } = await supabase.from('seasons').insert([{ name: "Season 1" }]).select();
         if (newError) {
             seasons = [{ id: "season_default", name: "Season 1" }];
         } else {
@@ -128,9 +105,9 @@ async function loadSeasons() {
     }
 
     if (!currentSeasonId || !seasons.find(s => s.id == currentSeasonId)) {
-        currentSeasonId = seasons.length > 0 ? seasons[0].id : "season_default";
+        currentSeasonId = seasons[0].id;
     }
-    currentSeasonName = seasons.find(s => s.id == currentSeasonId)?.name || (seasons[0]?.name || "N/A");
+    currentSeasonName = seasons.find(s => s.id == currentSeasonId)?.name || seasons[0].name;
 }
 
 async function loadPlayers() {
@@ -1403,7 +1380,6 @@ function setupEventListeners() {
         'closeAwardStudioBtn': () => toggleModal('award-studio-modal', false),
         'saveAwardBtn': () => handleSaveAward(),
         'closeSeasonManagerBtn': () => toggleModal('season-manager-modal', false),
-        'closeSeasonAccessBtn': () => toggleModal('season-access-modal', false),
         'createSeasonBtn': () => addSeasonFromManager(),
         'cancelConfirmBtn': () => closeConfirmModal(),
         'togglePlayerPoolBtn': () => togglePlayerPool(),
@@ -1581,21 +1557,9 @@ function setupEventListeners() {
             if (e.type === 'touchstart') e.preventDefault();
             return;
         }
-        const toggleUserAcc = target.closest('.action-toggle-user-access');
-        if (toggleUserAcc) {
-            toggleUserSeasonAccess(toggleUserAcc.dataset.seasonId, toggleUserAcc.dataset.userId, toggleUserAcc.dataset.hasAccess);
-            if (e.type === 'touchstart') e.preventDefault();
-            return;
-        }
-        const openAccess = target.closest('.action-open-season-access');
-        if (openAccess) {
-            openSeasonAccess(openAccess.dataset.id);
-            if (e.type === 'touchstart') e.preventDefault();
-            return;
-        }
-        const togglePriv = target.closest('.action-toggle-season-privacy');
-        if (togglePriv) {
-            toggleSeasonPrivacy(togglePriv.dataset.id);
+        const toggleP = target.closest('.action-toggle-player-pool');
+        if (toggleP) {
+            togglePlayerPool();
             if (e.type === 'touchstart') e.preventDefault();
             return;
         }
@@ -2179,9 +2143,6 @@ async function renderSeasonManager() {
                     <div id="name-edit-${s.id}" style="display:none">
                         <input type="text" id="name-input-${s.id}" class="season-name-input action-save-season-rename-input" data-id="${s.id}" value="${s.name}">
                     </div>
-                    <div style="font-size: 0.7rem; color: ${s.is_public ? 'var(--accent)' : 'var(--text-dim)'}; margin-top: 4px;">
-                        <i class="fas ${s.is_public ? 'fa-globe' : 'fa-lock'}"></i> ${s.is_public ? 'Public' : 'Restricted Access'}
-                    </div>
                 </div>
             </div>
 
@@ -2201,13 +2162,6 @@ async function renderSeasonManager() {
             </div>
 
             <div class="season-actions">
-                <button class="btn-card-action action-toggle-season-privacy" data-id="${s.id}" title="${s.is_public ? 'Make Private' : 'Make Public'}">
-                    <i class="fas ${s.is_public ? 'fa-lock' : 'fa-globe-americas'}"></i> ${s.is_public ? 'Restrict' : 'Make Public'}
-                </button>
-                ${!s.is_public ? `
-                <button class="btn-card-action action-open-season-access" data-id="${s.id}" title="Manage Access">
-                    <i class="fas fa-user-shield"></i> Access
-                </button>` : ''}
                 ${!isActive ? `
                     <button class="btn-card-action switch action-switch-season" data-id="${s.id}">
                         <i class="fas fa-exchange-alt"></i> Switch
@@ -2310,103 +2264,18 @@ async function deleteSeason(id) {
     }
 }
 
-async function openSeasonAccess(seasonId) {
-    if (!hasPermission('manageSeasons')) return;
-    const season = seasons.find(s => s && s.id == seasonId);
-    if (!season) return;
-
-    document.getElementById('sa-season-name').textContent = season.name;
-    const container = document.getElementById('sa-user-list');
-    container.innerHTML = '<div style="text-align:center; padding: 20px;">Loading users...</div>';
-    
-    toggleModal('season-access-modal', true);
-
-    try {
-        // Fetch all users from profiles or user_roles
-        const { data: allUsers } = await supabase.from('user_roles').select('*').order('email');
-        // Fetch existing access
-        const { data: accessData } = await supabase.from('season_access').select('user_id').eq('season_id', seasonId);
-        
-        const accessibleUserIds = new Set(accessData ? accessData.map(a => a.user_id) : []);
-
-        if (!allUsers || allUsers.length === 0) {
-            container.innerHTML = '<div style="text-align:center; padding: 20px;">No other users found.</div>';
-            return;
-        }
-
-        container.innerHTML = allUsers.map(u => {
-            const hasAccess = accessibleUserIds.has(u.user_id);
-            return `
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
-                <div>
-                    <div style="font-weight: 600;">${u.email}</div>
-                    <div style="font-size: 0.7rem; opacity: 0.6; text-transform: uppercase;">${u.role}</div>
-                </div>
-                <button class="btn-card-action action-toggle-user-access ${hasAccess ? 'switch' : ''}" 
-                        data-season-id="${seasonId}" data-user-id="${u.user_id}" data-has-access="${hasAccess}">
-                    <i class="fas ${hasAccess ? 'fa-check-circle' : 'fa-circle'}"></i> ${hasAccess ? 'Allowed' : 'Grant'}
-                </button>
-            </div>
-            `;
-        }).join('');
-
-    } catch (error) {
-        console.error("Error loading season access:", error);
-        container.innerHTML = '<div style="text-align:center; color: var(--accent);">Error loading user list.</div>';
-    }
-}
-
-async function toggleUserSeasonAccess(seasonId, userId, hasAccess) {
-    try {
-        if (hasAccess === 'true') {
-            const { error } = await supabase.from('season_access').delete().eq('season_id', seasonId).eq('user_id', userId);
-            if (error) throw error;
-        } else {
-            const { error } = await supabase.from('season_access').insert([{ season_id: seasonId, user_id: userId }]);
-            if (error) throw error;
-        }
-        openSeasonAccess(seasonId); // Refresh list
-    } catch (error) {
-        console.error("Error toggling user access:", error);
-        showAlertModal("Failed to update access.");
-    }
-}
-
-async function toggleSeasonPrivacy(id) {
-    if (!hasPermission('manageSeasons')) {
-        showAlertModal("Unauthorized: Season management permission required.");
-        return;
-    }
-    const s = seasons.find(x => x && x.id == id);
-    if (!s) return;
-
-    try {
-        const newStatus = !s.is_public;
-        const { error } = await supabase.from('seasons').update({ is_public: newStatus }).eq('id', id);
-        if (error) throw error;
-        
-        s.is_public = newStatus;
-        renderSeasonManager();
-    } catch (error) {
-        console.error("Error toggling privacy:", error);
-        showAlertModal("Failed to update privacy settings.");
-    }
-}
-
 async function addSeasonFromManager() {
     if (!hasPermission('manageSeasons')) {
         showAlertModal("Unauthorized: Editor or Admin access required.");
         return;
     }
     const input = document.getElementById('sm-new-name');
-    const isPublicInput = document.getElementById('sm-is-public');
     const name = input.value.trim();
-    const is_public = isPublicInput ? isPublicInput.checked : true;
     
     if (!name) return;
 
     try {
-        const { data, error } = await supabase.from('seasons').insert([{ name, is_public }]).select();
+        const { data, error } = await supabase.from('seasons').insert([{ name }]).select();
         if (error) throw error;
 
         currentSeasonId = data[0].id;

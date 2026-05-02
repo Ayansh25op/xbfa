@@ -32,17 +32,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 CREATE TABLE IF NOT EXISTS public.seasons (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
-  is_public BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
-);
-
--- Season Access Table
-CREATE TABLE IF NOT EXISTS public.season_access (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  season_id UUID REFERENCES public.seasons(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
-  UNIQUE(season_id, user_id)
 );
 
 CREATE TABLE IF NOT EXISTS public.players (
@@ -155,7 +145,6 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.players ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.matches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.seasons ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.season_access ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.match_ratings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.awards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.match_awards ENABLE ROW LEVEL SECURITY;
@@ -173,32 +162,9 @@ CREATE POLICY "Allow select for everyone" ON public.matches FOR SELECT TO public
 
 DROP POLICY IF EXISTS "Allow all for authenticated users" ON public.seasons;
 DROP POLICY IF EXISTS "Allow select for everyone" ON public.seasons;
-DROP POLICY IF EXISTS "Admins can manage all seasons" ON public.seasons;
-DROP POLICY IF EXISTS "Users can view permitted seasons" ON public.seasons;
-
--- Admin Policy
-CREATE POLICY "Admins can manage all seasons" ON public.seasons FOR ALL TO authenticated 
-USING (
-    auth.jwt() ->> 'email' = 'admin@xbfa.com' OR 
-    EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role = 'admin')
-)
-WITH CHECK (
-    auth.jwt() ->> 'email' = 'admin@xbfa.com' OR 
-    EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role = 'admin')
-);
-
--- Select Policy for others
-CREATE POLICY "Users can view permitted seasons" ON public.seasons FOR SELECT TO authenticated 
-USING (
-    is_public = true OR 
-    EXISTS (SELECT 1 FROM public.season_access WHERE season_id = seasons.id AND user_id = auth.uid())
-);
-
+CREATE POLICY "Allow all for authenticated users" ON public.seasons FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow select for everyone" ON public.seasons FOR SELECT TO public USING (true);
 CREATE POLICY "allow delete seasons" ON public.seasons FOR DELETE TO authenticated USING (true);
-
--- Season Access Policies
-DROP POLICY IF EXISTS "Allow all for authenticated users" ON public.season_access;
-CREATE POLICY "Allow all for authenticated users" ON public.season_access FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow all for authenticated users" ON public.match_ratings;
 DROP POLICY IF EXISTS "Allow select for everyone" ON public.match_ratings;

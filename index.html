@@ -578,10 +578,6 @@
         <!-- CREATE NEW SEASON -->
         <div class="season-create-banner" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
             <input type="text" id="sm-new-name" placeholder="New Season Name" style="flex: 1; min-width: 200px;">
-            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
-                <input type="checkbox" id="sm-is-public" checked> 
-                <span style="font-size: 0.9rem;">Public Season</span>
-            </label>
             <button id="createSeasonBtn" class="btn-neon">Create Season</button>
         </div>
 
@@ -592,18 +588,7 @@
     </div>
 </div>
 
-    <!-- MODAL: SEASON ACCESS MANAGER -->
-    <div id="season-access-modal" class="modal">
-        <div class="modal-content glass-card" style="max-width: 500px;">
-            <span class="close-btn" id="closeSeasonAccessBtn">&times;</span>
-            <h2>Manage Season Access</h2>
-            <p id="sa-season-name" style="color: var(--accent); font-weight: 800; margin-bottom: 20px;"></p>
-            
-            <div id="sa-user-list" style="max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
-                <!-- JS Injected -->
-            </div>
-        </div>
-    </div>
+
 
     <!-- MODAL: CUSTOM CONFIRMATION -->
     <div id="confirm-modal" class="modal">
