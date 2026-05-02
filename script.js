@@ -17,12 +17,13 @@ const ROLE_PERMISSIONS = {
         deleteMatch: true, 
         managePlayers: true, 
         manageAwards: true, 
+        viewSeasons: true,
         manageSeasons: true 
     },
-    match_rater: { editMatch: true, deleteMatch: true, manageAwards: true },
-    journalist: { manageAwards: true, readMatches: true },
-    viewer: { readOnly: true },
-    visitor: { readOnly: true }
+    match_rater: { editMatch: true, deleteMatch: true, manageAwards: true, viewSeasons: true },
+    journalist: { manageAwards: true, readMatches: true, viewSeasons: true },
+    viewer: { readOnly: true, viewSeasons: true },
+    visitor: { readOnly: true, viewSeasons: true }
 };
 
 function hasPermission(permission) {
@@ -2284,8 +2285,8 @@ async function addSeasonFromManager() {
 }
 
 async function switchSeason(id) {
-    if (!hasPermission('manageSeasons')) {
-        showAlertModal("Unauthorized: Season management permission required.");
+    if (!hasPermission('viewSeasons')) {
+        showAlertModal("Unauthorized: Season viewing permission required.");
         return;
     }
     currentSeasonId = id;
