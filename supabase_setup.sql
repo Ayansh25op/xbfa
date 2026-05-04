@@ -114,6 +114,14 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='matches' AND column_name='score_b') THEN
         ALTER TABLE public.matches ADD COLUMN score_b INTEGER DEFAULT 0;
     END IF;
+
+    -- Ensure seasons hidden/access columns exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='seasons' AND column_name='is_hidden') THEN
+        ALTER TABLE public.seasons ADD COLUMN is_hidden BOOLEAN DEFAULT false;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='seasons' AND column_name='allowed_users') THEN
+        ALTER TABLE public.seasons ADD COLUMN allowed_users UUID[] DEFAULT '{}';
+    END IF;
 END $$;
 
 CREATE TABLE IF NOT EXISTS public.match_ratings (

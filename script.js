@@ -100,14 +100,16 @@ async function loadSeasons() {
         } else {
             const userId = session?.user?.id;
             seasons = allSeasons.filter(s => {
-                if (!s.is_hidden) return true;
-                if (userId && Array.isArray(s.allowed_users) && s.allowed_users.includes(userId)) return true;
+                const isHidden = s.is_hidden ?? false;
+                const allowedUsers = s.allowed_users ?? [];
+                if (!isHidden) return true;
+                if (userId && allowedUsers.includes(userId)) return true;
                 return false;
             });
         }
         
         if (seasons.length === 0 && allSeasons.length > 0) {
-             const publicOnes = allSeasons.filter(s => !s.is_hidden);
+             const publicOnes = allSeasons.filter(s => !(s.is_hidden ?? false));
              seasons = publicOnes.length > 0 ? publicOnes : [allSeasons[0]];
         }
     } else {
@@ -2195,9 +2197,9 @@ async function renderSeasonManager() {
 
             <!-- VISIBILITY SETTINGS -->
             <div style="margin-top: 12px; display: flex; gap: 8px;">
-                <button class="action-toggle-season-visibility" data-id="${s.id}" data-hidden="${!!s.is_hidden}" style="flex: 1; height: 36px; background: ${s.is_hidden ? 'rgba(255,61,113,0.1)' : 'rgba(0,255,134,0.1)'}; color: ${s.is_hidden ? '#ff3d71' : 'var(--accent)'}; border: 1px solid ${s.is_hidden ? 'rgba(255,61,113,0.2)' : 'rgba(0,255,134,0.2)'}; border-radius: 8px; font-size: 0.65rem; cursor: pointer; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s ease;">
-                    <i class="fas ${s.is_hidden ? 'fa-lock' : 'fa-globe'}"></i> 
-                    ${s.is_hidden ? 'HIDDEN' : 'PUBLIC'}
+                <button class="action-toggle-season-visibility" data-id="${s.id}" data-hidden="${!!(s.is_hidden ?? false)}" style="flex: 1; height: 36px; background: ${(s.is_hidden ?? false) ? 'rgba(255,61,113,0.1)' : 'rgba(0,255,134,0.1)'}; color: ${(s.is_hidden ?? false) ? '#ff3d71' : 'var(--accent)'}; border: 1px solid ${(s.is_hidden ?? false) ? 'rgba(255,61,113,0.2)' : 'rgba(0,255,134,0.2)'}; border-radius: 8px; font-size: 0.65rem; cursor: pointer; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s ease;">
+                    <i class="fas ${(s.is_hidden ?? false) ? 'fa-lock' : 'fa-globe'}"></i> 
+                    ${(s.is_hidden ?? false) ? 'HIDDEN' : 'PUBLIC'}
                 </button>
                 <button class="action-manage-access btn-outline" data-id="${s.id}" style="flex: 1; height: 36px; font-size: 0.65rem; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 8px;">
                     <i class="fas fa-users-cog"></i> ACCESS
