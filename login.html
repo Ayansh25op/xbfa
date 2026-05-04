@@ -141,20 +141,40 @@
             margin-bottom: 15px;
             display: none;
         }
+
+        .contact-admin-btn {
+            background: rgba(0, 255, 136, 0.1);
+            color: var(--accent-green);
+            border: 1px solid rgba(0, 255, 136, 0.2);
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .contact-admin-btn:hover {
+            background: rgba(0, 255, 136, 0.2);
+            border-color: var(--accent-green);
+            transform: translateY(-1px);
+        }
     </style>
 </head>
 <body>
 
     <div class="login-container">
         <div class="logo">XB<span>FA</span></div>
-        <div class="subtitle">Database Access</div>
+        <div class="subtitle">Squad Portal</div>
 
         <div id="error-msg">Invalid email or password</div>
 
         <form id="loginForm" onsubmit="return false;">
             <div class="form-group">
                 <label for="email">Email</label>
-                <input type="email" id="email" placeholder="Enter admin email" required>
+                <input type="email" id="email" placeholder="Enter your email" required>
             </div>
 
             <div class="form-group">
@@ -169,8 +189,11 @@
             <div style="width: 20px; height: 20px; border: 2px solid var(--accent-green); border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto; margin-top: 15px;"></div>
         </div>
 
-        <div class="footer-links" style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px;">
-            <p style="font-size: 0.75rem; opacity: 0.5;">Master Admin Access Required</p>
+        <div style="margin-top: 30px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px;">
+            <p style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 12px;">Don't have an account? Contact admin to get access.</p>
+            <button type="button" class="contact-admin-btn" onclick="window.location.href='mailto:admin@xbfa.com'">
+                <i class="fas fa-envelope" style="margin-right: 5px;"></i> Contact Admin
+            </button>
         </div>
     </div>
 
