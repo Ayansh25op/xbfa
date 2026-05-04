@@ -559,9 +559,14 @@ async function updateAdminUserStats() {
 // --- DATA TOOLS ---
 async function recalculateAllStats() {
     if (!hasPermission('adminOnly')) return;
-    showConfirmModal("This will rebuild all player averages and totals based on match history. Proceed?", async () => {
-        // Implementation: Loop through players and matches to sync
-        showAlertModal("Feature incoming: Stats are currently auto-synced on every record.");
+    showConfirmModal("This will rebuild all player averages and totals based on match history for the CURRENT season. Proceed?", async () => {
+        try {
+            await recalculateStats();
+            showAlertModal("Stats recalculated successfully for the current season.");
+            await renderAll();
+        } catch (e) {
+            showAlertModal("Error recalculating stats: " + e.message);
+        }
     });
 }
 
@@ -1163,14 +1168,21 @@ async function deletePlayer(id) {
 
 // --- LEADERBOARDS RENDERING ---
 function renderLeaderboards() {
-    const draw = (data, key) => data.sort((a,b) => (b[key]||0)-(a[key]||0)).slice(0,5).map((p,i) => `
+    const draw = (data, key) => data.sort((a,b) => (parseFloat(b[key])||0)-(parseFloat(a[key])||0)).slice(0,5).map((p,i) => `
         <div class="leader-row">
             <span class="rank">${i+1}</span>
             <span class="player-name">${p.name}</span>
             <span class="stat">${p[key] || 0}</span>
         </div>`).join('');
     
-    document.getElementById('lb-goals').innerHTML = draw(players, 'goals');
+    // Season-isolated stats
+    const seasonPlayers = players.filter(p => p.season_id === currentSeasonId);
+    
+    const goalsList = document.getElementById('lb-goals');
+    if (goalsList) goalsList.innerHTML = draw(seasonPlayers, 'goals');
+    
+    const ratingsList = document.getElementById('lb-ratings');
+    if (ratingsList) ratingsList.innerHTML = draw(seasonPlayers.filter(p => (p.matches || 0) > 0), 'avgRating');
 }
 
 // --- MODAL & DATA UTILS ---
