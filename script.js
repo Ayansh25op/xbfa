@@ -2906,3 +2906,15 @@ function openRatingPickerBottomSheet(pid, pName, currentVal) {
         };
     });
 }
+
+window.addEventListener("load", () => {
+  const loader = document.getElementById("app-loader");
+  if (loader) {
+    setTimeout(() => {
+      loader.style.opacity = "0";
+      setTimeout(() => {
+        loader.style.display = "none";
+      }, 400);
+    }, 300);
+  }
+});

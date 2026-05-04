@@ -2024,3 +2024,50 @@ input::placeholder { color: rgba(255,255,255,0.3); }
     50% { box-shadow: 0 0 20px rgba(0, 255, 134, 0.5); }
     100% { box-shadow: 0 0 5px rgba(0, 255, 134, 0.2); }
 }
+
+#app-loader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999999;
+  transition: opacity 0.4s ease;
+}
+
+.loader-content {
+  text-align: center;
+}
+
+.loader-logo {
+  font-size: 32px;
+  font-weight: bold;
+  color: #00ff9c;
+  margin-bottom: 20px;
+  text-shadow: 0 0 20px rgba(0,255,156,0.6);
+}
+
+.loader-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(0,255,156,0.2);
+  border-top: 3px solid #00ff9c;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 15px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loader-text {
+  color: #aaa;
+  font-size: 14px;
+}
