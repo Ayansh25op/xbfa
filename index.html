@@ -282,11 +282,6 @@
                                 <span class="label">Status</span>
                                 <span class="value" style="color: var(--accent);">Active</span>
                             </div>
-                            <div class="profile-row" id="profile-access-row">
-                                <span class="label">Access</span>
-                                <span class="value" id="profile-access-info" style="font-size: 0.7rem; opacity: 0.8;">---</span>
-                            </div>
-                        </div>
                         <button class="btn-outline w-100" id="logoutBtn" style="margin-top: 10px;">
                             <i class="fas fa-sign-out-alt"></i> Logout
                         </button>
@@ -556,15 +551,6 @@
                     </select>
                 </div>
 
-                <div class="form-section" style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
-                    <label style="font-size: 0.75rem; color: var(--accent); font-weight: 700; margin-bottom: 10px; display: block;">
-                        <i class="fas fa-key"></i> Season Access Permissions
-                    </label>
-                    <div id="um-season-checkboxes" class="season-checkbox-group">
-                        <!-- JS Injected Season Checkboxes -->
-                    </div>
-                </div>
-
                 <button class="btn-neon w-100" id="createUserBtn" style="margin-top: 20px; font-weight: 800; letter-spacing: 1px;">
                     <i class="fas fa-plus-circle"></i> INITIALIZE ACCOUNT
                 </button>
@@ -598,7 +584,6 @@
         <!-- CREATE NEW SEASON -->
         <div class="season-create-banner" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
             <input type="text" id="sm-new-name" placeholder="New Season Name" style="flex: 2; min-width: 150px;">
-            <input type="text" id="sm-new-key" placeholder="Key (e.g. 10A)" style="flex: 1; min-width: 100px;">
             <button id="createSeasonBtn" class="btn-neon">Create Season</button>
         </div>
 
@@ -610,6 +595,31 @@
 </div>
 
 
+
+    <!-- MODAL: SEASON ACCESS MANAGER -->
+    <div id="season-access-modal" class="modal">
+        <div class="modal-content studio-large glass-card" style="max-width: 500px;">
+            <span class="close-btn" id="closeSeasonAccessBtn">&times;</span>
+            <div style="margin-bottom: 20px;">
+                <h2 style="margin: 0;">Manage Access</h2>
+                <p id="sa-season-name" style="color: var(--accent); font-weight: 800; margin-top: 5px;"></p>
+            </div>
+            
+            <div class="input-group-styled" style="margin-bottom: 15px;">
+                <input type="text" id="sa-user-search" placeholder="Search users by email..." oninput="filterAccessUserList()">
+            </div>
+
+            <div id="sa-user-list" style="max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 5px;">
+                <!-- JS Injected User List -->
+            </div>
+
+            <div style="margin-top: 25px; display: flex; gap: 10px;">
+                <button class="btn-neon" id="saveSeasonAccessBtn" style="flex: 1;">
+                    <i class="fas fa-save"></i> Save Permissions
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- MODAL: CUSTOM CONFIRMATION -->
     <div id="confirm-modal" class="modal">

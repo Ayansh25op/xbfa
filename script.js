@@ -6,6 +6,8 @@ let currentSeasonId = null;
 let currentSeasonName = "";
 let currentPage = "dashboard";
 let seasons = [];
+let currentManagingSeasonId = null;
+let allSystemUsers = [];
 let players = [];
 let matches = [];
 
@@ -36,7 +38,6 @@ function hasPermission(permission) {
 // --- AUTH & SESSION ---
 let session = null;
 let userRole = "visitor";
-let userSeasonAccess = [];
 const ADMIN_EMAIL = "admin@xbfa.com";
 
 async function checkAuth() {
@@ -51,16 +52,14 @@ async function checkAuth() {
     // Role & Access Check
     if (session.user.email === ADMIN_EMAIL) {
         userRole = "admin";
-        userSeasonAccess = ["*"]; // Special all-access key for admin
     } else {
         // Fallback to database check for other users
         const { data: userData } = await supabase.from('user_roles')
-            .select('role, season_access')
+            .select('role')
             .eq('user_id', session.user.id)
             .single();
 
         userRole = userData ? userData.role : "visitor";
-        userSeasonAccess = userData && userData.season_access ? userData.season_access : ["CHAOS"];
     }
 
     await init();
@@ -96,17 +95,20 @@ async function loadSeasons() {
         console.error("Error loading seasons:", error);
         seasons = [{ id: "season_default", name: "Season 1", key: "CHAOS" }];
     } else if (allSeasons && allSeasons.length > 0) {
-        // Filter based on access
-        if (userRole === 'admin' || userSeasonAccess.includes('*')) {
+        if (userRole === 'admin') {
             seasons = allSeasons;
         } else {
-            seasons = allSeasons.filter(s => userSeasonAccess.includes(s.key) || s.key === 'CHAOS');
+            const userId = session?.user?.id;
+            seasons = allSeasons.filter(s => {
+                if (!s.is_hidden) return true;
+                if (userId && Array.isArray(s.allowed_users) && s.allowed_users.includes(userId)) return true;
+                return false;
+            });
         }
-
-        // If filtering results in empty, fallback to CHAOS or first available
+        
         if (seasons.length === 0 && allSeasons.length > 0) {
-            seasons = allSeasons.filter(s => s.key === 'CHAOS');
-            if (seasons.length === 0) seasons = [allSeasons[0]];
+             const publicOnes = allSeasons.filter(s => !s.is_hidden);
+             seasons = publicOnes.length > 0 ? publicOnes : [allSeasons[0]];
         }
     } else {
         // Initial setup if empty
@@ -524,15 +526,6 @@ async function renderAdminDashboard() {
         if (userRole === 'admin') profileRoleBadgeEl.style.color = '#00ff9c';
         else if (userRole === 'editor') profileRoleBadgeEl.style.color = '#00eaff';
         else profileRoleBadgeEl.style.color = 'var(--text-dim)';
-    }
-
-    const accessInfoEl = document.getElementById('profile-access-info');
-    if (accessInfoEl) {
-        if (userRole === 'admin' || userSeasonAccess.includes('*')) {
-            accessInfoEl.innerText = "All Seasons";
-        } else {
-            accessInfoEl.innerText = `Seasons: ${userSeasonAccess.join(', ') || 'CHAOS'}`;
-        }
     }
 }
 
@@ -1403,6 +1396,8 @@ function setupEventListeners() {
         'closeAwardStudioBtn': () => toggleModal('award-studio-modal', false),
         'saveAwardBtn': () => handleSaveAward(),
         'closeSeasonManagerBtn': () => toggleModal('season-manager-modal', false),
+        'closeSeasonAccessBtn': () => toggleModal('season-access-modal', false),
+        'saveSeasonAccessBtn': () => finalizeSeasonAccess(),
         'createSeasonBtn': () => addSeasonFromManager(),
         'cancelConfirmBtn': () => closeConfirmModal(),
         'togglePlayerPoolBtn': () => togglePlayerPool(),
@@ -1591,6 +1586,18 @@ function setupEventListeners() {
         const switchSeas = target.closest('.action-switch-season');
         if (switchSeas) {
             switchSeason(switchSeas.dataset.id);
+            if (e.type === 'touchstart') e.preventDefault();
+            return;
+        }
+        const toggleVis = target.closest('.action-toggle-season-visibility');
+        if (toggleVis) {
+            toggleSeasonVisibility(toggleVis.dataset.id, toggleVis.dataset.hidden === 'true');
+            if (e.type === 'touchstart') e.preventDefault();
+            return;
+        }
+        const openAccess = target.closest('.action-manage-access');
+        if (openAccess) {
+            openSeasonAccess(openAccess.dataset.id);
             if (e.type === 'touchstart') e.preventDefault();
             return;
         }
@@ -2168,9 +2175,6 @@ async function renderSeasonManager() {
                     <div id="name-edit-${s.id}" style="display:none">
                         <input type="text" id="name-input-${s.id}" class="season-name-input action-save-season-rename-input" data-id="${s.id}" value="${s.name}">
                     </div>
-                    <div style="font-size: 0.7rem; color: var(--accent); margin-top: 4px; opacity: 0.6;">
-                        KEY: ${s.key || 'NONE'}
-                    </div>
                 </div>
             </div>
 
@@ -2187,6 +2191,17 @@ async function renderSeasonManager() {
                     <span class="sm-stat-label">Goals</span>
                     <span class="sm-stat-val">${stats.goals}</span>
                 </div>
+            </div>
+
+            <!-- VISIBILITY SETTINGS -->
+            <div style="margin-top: 12px; display: flex; gap: 8px;">
+                <button class="action-toggle-season-visibility" data-id="${s.id}" data-hidden="${!!s.is_hidden}" style="flex: 1; height: 36px; background: ${s.is_hidden ? 'rgba(255,61,113,0.1)' : 'rgba(0,255,134,0.1)'}; color: ${s.is_hidden ? '#ff3d71' : 'var(--accent)'}; border: 1px solid ${s.is_hidden ? 'rgba(255,61,113,0.2)' : 'rgba(0,255,134,0.2)'}; border-radius: 8px; font-size: 0.65rem; cursor: pointer; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s ease;">
+                    <i class="fas ${s.is_hidden ? 'fa-lock' : 'fa-globe'}"></i> 
+                    ${s.is_hidden ? 'HIDDEN' : 'PUBLIC'}
+                </button>
+                <button class="action-manage-access btn-outline" data-id="${s.id}" style="flex: 1; height: 36px; font-size: 0.65rem; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 8px;">
+                    <i class="fas fa-users-cog"></i> ACCESS
+                </button>
             </div>
 
             <div class="season-actions">
@@ -2255,6 +2270,111 @@ async function saveSeasonRename(id) {
     renderSeasonManager();
 }
 
+async function openSeasonAccess(id) {
+    currentManagingSeasonId = id;
+    const season = seasons.find(s => s.id === id);
+    if (!season) return;
+
+    document.getElementById('sa-season-name').innerText = season.name;
+    document.getElementById('sa-user-search').value = "";
+    
+    toggleModal('season-access-modal', true);
+    const listEl = document.getElementById('sa-user-list');
+    listEl.innerHTML = `<div style="text-align:center; padding:20px; opacity:0.5;">Loading users...</div>`;
+
+    try {
+        // Fetch all users from user_roles
+        const { data: users, error } = await supabase.from('user_roles').select('user_id, email').order('email');
+        if (error) throw error;
+        
+        allSystemUsers = users;
+        renderAccessUserList(season.allowed_users || []);
+    } catch (err) {
+        console.error("Error loading users for access:", err);
+        listEl.innerHTML = `<div style="text-align:center; padding:10px; color:var(--red);">Failed to load user list.</div>`;
+    }
+}
+
+function renderAccessUserList(allowedUsers) {
+    const listEl = document.getElementById('sa-user-list');
+    const filter = document.getElementById('sa-user-search').value.toLowerCase();
+    
+    const filteredUsers = allSystemUsers.filter(u => 
+        (u.email || u.user_id).toLowerCase().includes(filter)
+    );
+
+    if (filteredUsers.length === 0) {
+        listEl.innerHTML = `<div style="text-align:center; padding:20px; opacity:0.4; font-size:0.8rem;">No users found</div>`;
+        return;
+    }
+
+    listEl.innerHTML = filteredUsers.map(u => {
+        const isChecked = allowedUsers.includes(u.user_id);
+        return `
+            <label class="user-access-item glass-card" style="padding: 10px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: all 0.2s ease; border: 1px solid rgba(255,255,255,0.05);">
+                <div style="display: flex; flex-direction: column; gap: 2px;">
+                    <span style="font-size: 0.8rem; font-weight: 700; color: #fff;">${u.email || 'System User'}</span>
+                    <span style="font-size: 0.6rem; opacity: 0.4;">UID: ${u.user_id.substring(0,8)}...</span>
+                </div>
+                <input type="checkbox" class="sa-user-checkbox" value="${u.user_id}" ${isChecked ? 'checked' : ''} style="width: 18px; height: 18px; accent-color: var(--accent);">
+            </label>
+        `;
+    }).join('');
+}
+
+function filterAccessUserList() {
+    const season = seasons.find(s => s.id === currentManagingSeasonId);
+    if (!season) return;
+    
+    // We need to keep track of CURRENTLY checked items in the UI if we don't want to lose them when filtering
+    // Alternatively, just re-read the DOM before finalize. 
+    // For simplicity, we just re-render but we might lose state of checked items not yet saved.
+    // Better: Collect IDs from DOM first.
+    const currentChecked = Array.from(document.querySelectorAll('.sa-user-checkbox:checked')).map(cb => cb.value);
+    
+    // Actually, to make it feel better, we should update season.allowed_users locally or just use a temporary set
+    renderAccessUserList(currentChecked);
+}
+
+async function finalizeSeasonAccess() {
+    if (!currentManagingSeasonId) return;
+    const btn = document.getElementById('saveSeasonAccessBtn');
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Saving...`;
+
+    const checkedIds = Array.from(document.querySelectorAll('.sa-user-checkbox:checked')).map(cb => cb.value);
+
+    try {
+        const { error } = await supabase.from('seasons').update({ allowed_users: checkedIds }).eq('id', currentManagingSeasonId);
+        if (error) throw error;
+        
+        await loadSeasons();
+        renderSeasonManager();
+        toggleModal('season-access-modal', false);
+        showAlertModal("Access permissions updated successfully.");
+    } catch (err) {
+        console.error("Error saving season access:", err);
+        showAlertModal("Failed to save access changes.");
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fas fa-save"></i> Save Permissions`;
+    }
+}
+
+async function toggleSeasonVisibility(id, currentHidden) {
+    if (userRole !== 'admin') return;
+    try {
+        const { error } = await supabase.from('seasons').update({ is_hidden: !currentHidden }).eq('id', id);
+        if (error) throw error;
+        await loadSeasons();
+        renderSeasonManager();
+        showAlertModal(`Season is now ${!currentHidden ? 'HIDDEN' : 'PUBLIC'}`);
+    } catch (err) {
+        console.error("Error toggling visibility:", err);
+        showAlertModal("Failed to update visibility.");
+    }
+}
+
 function requestDeleteSeason(id) {
     document.getElementById(`confirm-delete-${id}`).style.display = 'flex';
 }
@@ -2298,14 +2418,12 @@ async function addSeasonFromManager() {
         return;
     }
     const input = document.getElementById('sm-new-name');
-    const keyInput = document.getElementById('sm-new-key');
     const name = input.value.trim();
-    const key = keyInput ? keyInput.value.trim().toUpperCase() : null;
     
     if (!name) return;
 
     try {
-        const { data, error } = await supabase.from('seasons').insert([{ name, key }]).select();
+        const { data, error } = await supabase.from('seasons').insert([{ name }]).select();
         if (error) throw error;
 
         currentSeasonId = data[0].id;
@@ -2463,28 +2581,14 @@ async function loadUsers() {
 
     const list = document.getElementById('user-list-container');
     const countEl = document.getElementById('user-count');
-    const createSeasonKeysContainer = document.getElementById('um-season-checkboxes');
     if (!list) return;
-
-    // Inject checkboxes for "Create New User" form
-    if (createSeasonKeysContainer) {
-        const availableKeys = [...new Set(seasons.map(s => s.key).filter(k => k))];
-        if (!availableKeys.includes('CHAOS')) availableKeys.push('CHAOS');
-        
-        createSeasonKeysContainer.innerHTML = availableKeys.map(key => `
-            <label class="season-checkbox-item">
-                <input type="checkbox" name="um-create-season" value="${key}" ${key === 'CHAOS' ? 'checked' : ''}>
-                <span class="season-checkbox-label">${key}</span>
-            </label>
-        `).join('');
-    }
 
     list.innerHTML = `<div style="text-align:center; padding:20px; opacity:0.5;">Loading accounts...</div>`;
 
     try {
         const { data: users, error } = await supabase
             .from('user_roles')
-            .select('user_id, role, email, season_access')
+            .select('user_id, role, email')
             .order('email');
 
         if (error) throw error;
@@ -2500,11 +2604,7 @@ async function loadUsers() {
             `<option value="${r}">${r.replace('_', ' ').toUpperCase()}</option>`
         ).join('');
 
-        const availableKeys = [...new Set(seasons.map(s => s.key).filter(k => k))];
-        if (!availableKeys.includes('CHAOS')) availableKeys.push('CHAOS');
-
         list.innerHTML = users.map(u => {
-            const userAccess = u.season_access || [];
             const roleClass = `role-${u.role}`;
 
             return `
@@ -2516,10 +2616,6 @@ async function loadUsers() {
                             <div class="role-badge ${roleClass}">${u.role}</div>
                             <span style="font-weight: 700; font-size: 0.95rem; color: #fff;">${u.email || 'System User'}</span>
                         </div>
-                        <div class="access-chip-grid" id="access-badges-${u.user_id}">
-                            ${userAccess.map(k => `<span class="access-chip">${k}</span>`).join('')}
-                            ${userAccess.length === 0 ? '<span style="font-size: 0.6rem; opacity: 0.4;">No seasons assigned</span>' : ''}
-                        </div>
                     </div>
                     <button class="btn-danger action-delete-user" data-id="${u.user_id}" style="padding: 10px; min-width: auto; height: auto; border-radius: 12px; margin-left: 10px;">
                         <i class="fas fa-trash-alt"></i>
@@ -2529,31 +2625,17 @@ async function loadUsers() {
                 <div style="height: 1px; background: rgba(255,255,255,0.05); margin: 5px 0;"></div>
 
                 <!-- CONFIGURATION PANEL -->
-                <div style="display: grid; grid-template-columns: 140px 1fr; gap: 20px;">
+                <div style="display: grid; grid-template-columns: 1fr; gap: 20px;">
                     <div class="input-group-styled">
-                        <label style="font-size: 0.65rem; margin-bottom: 6px; letter-spacing: 0.5px;">ROLE</label>
-                        <select class="role-select" id="role-select-${u.user_id}" style="padding: 8px; font-size: 0.75rem;" onchange="this.closest('.user-card-modern').classList.add('pending-save')">
+                        <label style="font-size: 0.65rem; margin-bottom: 6px; letter-spacing: 0.5px;">PROVISIONED ROLE</label>
+                        <select class="role-select" id="role-select-${u.user_id}" style="padding: 10px; font-size: 0.85rem;" onchange="this.closest('.user-card-modern').classList.add('pending-save')">
                             ${roleOptions.split(`value="${u.role}"`).join(`value="${u.role}" selected`)}
                         </select>
                     </div>
-
-                    <div>
-                        <label style="font-size: 0.65rem; display: block; margin-bottom: 8px; color: var(--accent); font-weight: 800; letter-spacing: 0.5px;">
-                            SEASON ACCESS
-                        </label>
-                        <div class="season-checkbox-group">
-                            ${availableKeys.map(key => `
-                                <label class="season-checkbox-item">
-                                    <input type="checkbox" class="user-access-cb-${u.user_id}" value="${key}" ${userAccess.includes(key) ? 'checked' : ''} onchange="this.closest('.user-card-modern').classList.add('pending-save')">
-                                    <span class="season-checkbox-label">${key}</span>
-                                </label>
-                            `).join('')}
-                        </div>
-                    </div>
                 </div>
 
-                <button class="btn-neon action-save-user-config" data-id="${u.user_id}" style="width: 100%; margin: 0; padding: 10px; font-size: 0.75rem; font-weight: 800; border-radius: 10px;">
-                    <i class="fas fa-save"></i> SYNC PERMISSIONS
+                <button class="btn-neon action-save-user-config" data-id="${u.user_id}" style="width: 100%; margin: 0; padding: 12px; font-size: 0.8rem; font-weight: 800; border-radius: 12px;">
+                    <i class="fas fa-save"></i> UPDATE PERMISSIONS
                 </button>
             </div>
             `;
@@ -2565,7 +2647,7 @@ async function loadUsers() {
     }
 }
 
-async function updateUserConfig(userId, newRole, accessArr) {
+async function updateUserConfig(userId, newRole) {
     if (!hasPermission('adminOnly')) {
         showAlertModal("Unauthorized: Admin access required.");
         return;
@@ -2575,8 +2657,7 @@ async function updateUserConfig(userId, newRole, accessArr) {
         const { error } = await supabase
             .from('user_roles')
             .update({ 
-                role: newRole, 
-                season_access: accessArr 
+                role: newRole
             })
             .eq('user_id', userId);
 
@@ -2584,14 +2665,12 @@ async function updateUserConfig(userId, newRole, accessArr) {
 
         // Also update profiles if present
         await supabase.from('profiles').update({ 
-            role: newRole, 
-            season_access: accessArr 
+            role: newRole
         }).eq('id', userId);
 
         // If it's the current user, update local state
         if (session && session.user.id === userId) {
             userRole = newRole;
-            userSeasonAccess = accessArr;
         }
 
         showAlertModal("User configuration updated successfully!");
@@ -2612,10 +2691,6 @@ async function createUser() {
     const password = document.getElementById('um-password').value.trim();
     const role = document.getElementById('um-role').value;
     
-    // Get checkbox values
-    const checkboxes = document.querySelectorAll('input[name="um-create-season"]:checked');
-    const season_access = Array.from(checkboxes).map(cb => cb.value);
-
     if (!email || !password) {
         showAlertModal("Please enter both email and password.");
         return;
@@ -2632,7 +2707,7 @@ async function createUser() {
                 'Authorization': `Bearer ${session.access_token}`,
                 'apikey': anonKey
             },
-            body: JSON.stringify({ email, password, role, season_access })
+            body: JSON.stringify({ email, password, role })
         });
 
         const text = await response.text();

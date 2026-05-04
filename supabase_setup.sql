@@ -2,8 +2,7 @@
 CREATE TABLE IF NOT EXISTS public.user_roles (
   user_id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
   email TEXT,
-  role TEXT NOT NULL DEFAULT 'visitor',
-  season_access TEXT[] DEFAULT '{}'
+  role TEXT NOT NULL DEFAULT 'visitor'
 );
 
 -- Ensure email column exists if table was created earlier
@@ -11,9 +10,6 @@ DO $$
 BEGIN 
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='user_roles' AND column_name='email') THEN
         ALTER TABLE public.user_roles ADD COLUMN email TEXT;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='user_roles' AND column_name='season_access') THEN
-        ALTER TABLE public.user_roles ADD COLUMN season_access TEXT[] DEFAULT '{}';
     END IF;
     
     -- Backfill emails from auth.users if available
@@ -29,7 +25,6 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
   username TEXT UNIQUE,
   role TEXT DEFAULT 'visitor',
-  season_access TEXT[] DEFAULT '{}',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
@@ -38,6 +33,8 @@ CREATE TABLE IF NOT EXISTS public.seasons (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   key TEXT UNIQUE,
+  is_hidden BOOLEAN DEFAULT false,
+  allowed_users TEXT[] DEFAULT '{}',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
@@ -223,12 +220,12 @@ BEGIN
       initial_role := 'admin';
     END IF;
 
-    INSERT INTO public.user_roles (user_id, email, role, season_access)
-    VALUES (new.id, new.email, initial_role, ARRAY['CHAOS']);
+    INSERT INTO public.user_roles (user_id, email, role)
+    VALUES (new.id, new.email, initial_role);
 
     -- Insert into profiles
-    INSERT INTO public.profiles (id, username, role, season_access)
-    VALUES (new.id, new.email, initial_role, ARRAY['CHAOS']);
+    INSERT INTO public.profiles (id, username, role)
+    VALUES (new.id, new.email, initial_role);
   END;
 
   RETURN new;
