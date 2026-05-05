@@ -150,6 +150,26 @@ CREATE TABLE IF NOT EXISTS public.match_awards (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
+-- 7. Penalty Support
+CREATE TABLE IF NOT EXISTS public.goals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  match_id UUID REFERENCES public.matches(id) ON DELETE CASCADE,
+  player_id UUID REFERENCES public.players(id) ON DELETE CASCADE,
+  minute INTEGER,
+  is_penalty BOOLEAN DEFAULT false,
+  is_own_goal BOOLEAN DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.penalty_shootout (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  match_id UUID REFERENCES public.matches(id) ON DELETE CASCADE,
+  player_id UUID REFERENCES public.players(id) ON DELETE CASCADE,
+  is_scored BOOLEAN,
+  order_index INTEGER,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
 -- 4. Enable Row Level Security
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
@@ -159,6 +179,8 @@ ALTER TABLE public.seasons ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.match_ratings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.awards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.match_awards ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.goals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.penalty_shootout ENABLE ROW LEVEL SECURITY;
 
 -- 4.1 Policies
 DROP POLICY IF EXISTS "Allow all for authenticated users" ON public.players;
@@ -186,6 +208,16 @@ DROP POLICY IF EXISTS "Allow all for authenticated users" ON public.awards;
 DROP POLICY IF EXISTS "Allow select for everyone" ON public.awards;
 CREATE POLICY "Allow all for authenticated users" ON public.awards FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Allow select for everyone" ON public.awards FOR SELECT TO public USING (true);
+
+DROP POLICY IF EXISTS "Allow all for authenticated users" ON public.goals;
+DROP POLICY IF EXISTS "Allow select for everyone" ON public.goals;
+CREATE POLICY "Allow all for authenticated users" ON public.goals FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow select for everyone" ON public.goals FOR SELECT TO public USING (true);
+
+DROP POLICY IF EXISTS "Allow all for authenticated users" ON public.penalty_shootout;
+DROP POLICY IF EXISTS "Allow select for everyone" ON public.penalty_shootout;
+CREATE POLICY "Allow all for authenticated users" ON public.penalty_shootout FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow select for everyone" ON public.penalty_shootout FOR SELECT TO public USING (true);
 
 -- 117
 DROP POLICY IF EXISTS "match_awards_authenticated_all" ON public.match_awards;

@@ -2025,19 +2025,138 @@ input::placeholder { color: rgba(255,255,255,0.3); }
     100% { box-shadow: 0 0 5px rgba(0, 255, 134, 0.2); }
 }
 
-#app-loader {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: #000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 999999;
-  transition: opacity 0.4s ease;
+/* Shootout Results */
+.shootout-results-card {
+    background: linear-gradient(135deg, rgba(0,255,134,0.05) 0%, rgba(0,0,0,0) 100%) !important;
+    border: 1px solid rgba(0,255,134,0.1) !important;
 }
+
+.shootout-team-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.shootout-team-row:last-child {
+    border-bottom: none;
+}
+
+.st-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.st-name {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-dim);
+}
+
+.st-score {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #888;
+}
+
+.st-score.winner {
+    color: var(--accent);
+    text-shadow: 0 0 10px rgba(0,255,134,0.4);
+}
+
+.shootout-summary-box {
+    background: rgba(255,255,255,0.03);
+    padding: 15px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.05);
+    margin: 15px 0;
+}
+
+.sv-row {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 10px;
+}
+
+.sv-row:last-child {
+    margin-bottom: 0;
+}
+
+.sv-team {
+    width: 60px;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    font-weight: 500;
+}
+
+.sv-grid {
+    flex: 1;
+    display: flex;
+    gap: 8px;
+}
+
+.sv-dot {
+    font-size: 1rem;
+}
+
+.sv-dot.scored {
+    filter: drop-shadow(0 0 4px var(--accent));
+}
+
+.sv-dot.missed {
+    opacity: 0.4;
+}
+
+.sv-score {
+    width: 20px;
+    text-align: right;
+    font-weight: 800;
+    font-family: var(--font-mono);
+    color: #444;
+}
+
+.sv-score.winner {
+    color: var(--accent);
+}
+
+
+.st-grid {
+    display: flex;
+    gap: 6px;
+}
+
+.shot-icon {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    border-radius: 4px;
+}
+
+.shot-icon.scored {
+    filter: drop-shadow(0 0 5px rgba(0,255,134,0.5));
+}
+
+.shot-icon.missed {
+    opacity: 0.6;
+    filter: grayscale(1);
+}
+
+.event-tag.pen {
+    background: rgba(0, 255, 134, 0.15);
+    color: var(--accent);
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: bold;
+    margin-left: 5px;
+}
+
 
 .loader-content {
   text-align: center;
