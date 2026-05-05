@@ -161,7 +161,7 @@ async function loadMatches() {
     console.log("Loading matches from Supabase for season:", currentSeasonId);
     const { data, error } = await supabase
         .from('matches')
-        .select('*, match_ratings(*), match_awards(*), penalty_shootout(*)')
+        .select('*, match_ratings(*), match_awards(*)')
         .eq('season_id', currentSeasonId);
 
     if (error) {
@@ -182,7 +182,6 @@ async function loadMatches() {
                 player_id: r.player_id,
                 rating: r.rating
             })),
-            shootout: (m.penalty_shootout || []).sort((a,b) => (a.order_index||0) - (b.order_index||0)),
             awards: awardsObj
         };
     });
@@ -290,21 +289,6 @@ async function saveMatchToDB(match) {
             if (awardsToInsert.length > 0) {
                 const { error: aError } = await supabase.from('match_awards').insert(awardsToInsert);
                 if (aError) throw aError;
-            }
-        }
-
-        // Handle shootout
-        if (match.shootout) {
-            await supabase.from('penalty_shootout').delete().eq('match_id', matchId);
-            if (match.shootout.length > 0) {
-                const shootoutToInsert = match.shootout.map(s => ({
-                    match_id: matchId,
-                    player_id: s.player_id,
-                    is_scored: s.is_scored,
-                    order_index: s.order_index
-                }));
-                const { error: psError } = await supabase.from('penalty_shootout').insert(shootoutToInsert);
-                if (psError) throw psError;
             }
         }
 
@@ -768,18 +752,12 @@ async function loadMatchDetails(matchId) {
     const match = matches.find(x => x && x.id == matchId);
     if (!match) return;
 
-    // Fetch ratings and shootout explicitly to ensure data is fresh
-    const [ratingsRes, shootoutRes] = await Promise.all([
-        supabase.from("match_ratings").select("*").eq("match_id", matchId),
-        supabase.from("penalty_shootout").select("*").eq("match_id", matchId).order("order_index", { ascending: true })
+    // Fetch ratings explicitly to ensure data is fresh
+    const [ratingsRes] = await Promise.all([
+        supabase.from("match_ratings").select("*").eq("match_id", matchId)
     ]);
     
     const ratings = ratingsRes.data || [];
-    const shootoutData = shootoutRes.data || [];
-    console.log("Penalties:", shootoutData);
-    
-    // Update match object in our local array if needed (optional but good for consistency)
-    match.shootout = shootoutData;
 
     const getP = (pid) => {
         if (!pid) return "N/A";
@@ -857,38 +835,6 @@ async function loadMatchDetails(matchId) {
                     </div>
                 </div>
             </div>
-
-            ${match.shootout && match.shootout.length > 0 ? (() => {
-                const teamA_shots = match.shootout.filter(ps => match.team_a.some(pid => String(pid) === String(ps.player_id)));
-                const teamB_shots = match.shootout.filter(ps => match.team_b.some(pid => String(pid) === String(ps.player_id)));
-                const scoreA = teamA_shots.filter(s => s.is_scored).length;
-                const scoreB = teamB_shots.filter(s => s.is_scored).length;
-                
-                return `
-                <div class="studio-section shootout-results-card">
-                    <div class="studio-section-title"><i class="fas fa-futbol"></i> PENALTY SHOOTOUT</div>
-                    <div class="shootout-container">
-                        <div class="shootout-team-row">
-                            <div class="st-info">
-                                <span class="st-name">Team A</span>
-                                <span class="st-score ${scoreA > scoreB ? 'winner' : ''}">${scoreA}</span>
-                            </div>
-                            <div class="st-grid">
-                                ${teamA_shots.map(s => `<div class="shot-icon ${s.is_scored ? 'scored' : 'missed'}">${s.is_scored ? '⚽' : '❌'}</div>`).join('')}
-                            </div>
-                        </div>
-                        <div class="shootout-team-row">
-                            <div class="st-info">
-                                <span class="st-name">Team B</span>
-                                <span class="st-score ${scoreB > scoreA ? 'winner' : ''}">${scoreB}</span>
-                            </div>
-                            <div class="st-grid">
-                                ${teamB_shots.map(s => `<div class="shot-icon ${s.is_scored ? 'scored' : 'missed'}">${s.is_scored ? '⚽' : '❌'}</div>`).join('')}
-                            </div>
-                        </div>
-                    </div>
-                </div>`;
-            })() : ''}
 
             <div class="studio-section" style="margin-bottom: 30px !important;">
                 <div class="studio-section-title"><i class="fas fa-trophy" style="color: gold"></i> MATCH AWARDS</div>
@@ -981,34 +927,6 @@ async function loadMatchDetails(matchId) {
                     `}).join('') : '<p class="text-dim" style="padding:20px">No goals were recorded in this match.</p>'}
                 </div>
             </div>
-
-            ${match.shootout && match.shootout.length > 0 ? (() => {
-                const teamA_shots = match.shootout.filter(ps => match.team_a.some(pid => String(pid) === String(ps.player_id)));
-                const teamB_shots = match.shootout.filter(ps => match.team_b.some(pid => String(pid) === String(ps.player_id)));
-                const scoreA = teamA_shots.filter(s => s.is_scored).length;
-                const scoreB = teamB_shots.filter(s => s.is_scored).length;
-                
-                return `
-                <div class="detail-timeline-modern shootout-summary-box" style="margin-top:20px;">
-                    <h4><i class="fas fa-futbol"></i> PENALTY SHOOTOUT</h4>
-                    <div class="shootout-visual-rows">
-                        <div class="sv-row">
-                            <span class="sv-team">Team A</span>
-                            <div class="sv-grid">
-                                ${teamA_shots.map(s => `<span class="sv-dot ${s.is_scored ? 'scored' : 'missed'}">${s.is_scored ? '⚽️' : '❌'}</span>`).join('')}
-                            </div>
-                            <span class="sv-score ${scoreA > scoreB ? 'winner' : ''}">${scoreA}</span>
-                        </div>
-                        <div class="sv-row">
-                            <span class="sv-team">Team B</span>
-                            <div class="sv-grid">
-                                ${teamB_shots.map(s => `<span class="sv-dot ${s.is_scored ? 'scored' : 'missed'}">${s.is_scored ? '⚽️' : '❌'}</span>`).join('')}
-                            </div>
-                            <span class="sv-score ${scoreB > scoreA ? 'winner' : ''}">${scoreB}</span>
-                        </div>
-                    </div>
-                </div>`;
-            })() : ''}
 
             <div class="awards-grid-modern">
                 <div class="award-card-mini" style="background: rgba(255,215,0,0.05);">
@@ -1464,14 +1382,6 @@ function updateStudioScore() {
             if (team === 'A' && ownGoal) score_b++;
         }
     });
-
-    const trigger = document.getElementById('start-shootout-trigger');
-    if (!trigger) return;
-    if (score_a === score_b && (score_a > 0 || rows.length > 0)) {
-         trigger.style.display = 'block';
-    } else {
-         trigger.style.display = 'none';
-    }
 }
 
 async function init() {
@@ -1524,7 +1434,6 @@ function setupEventListeners() {
         'savePlayerBtn': () => handleSavePlayer(),
         'closeMatchStudioBtn': () => toggleModal('match-studio-modal', false),
         'addGoalRowBtn': () => addGoalRow(),
-        'addShootoutRowBtn': () => addShootoutRow(),
         'addMatchAwardBtn': () => addAwardRowInStudio(),
         'ms-finalize-btn': () => saveMatch(),
         'closePlayerViewBtn': () => toggleModal('player-modal', false),
@@ -1541,16 +1450,7 @@ function setupEventListeners() {
         'recalculateStatsBtn': () => recalculateAllStats(),
         'clearMatchesBtn': () => clearCollection('matches', 'matches'),
         'clearPlayersBtn': () => clearCollection('players', 'players'),
-    // 1478:
         'fixDataBtn': () => showAlertModal("Fixing data... Success."),
-        'start-shootout-trigger': () => {
-            const section = document.getElementById('ms-shootout-section');
-            section.style.display = 'block';
-            section.scrollIntoView({ behavior: 'smooth' });
-            if (document.querySelectorAll('.shootout-item').length === 0) {
-                addShootoutRow();
-            }
-        }
     };
 
     // Add debug toggle listener
@@ -1707,12 +1607,6 @@ function setupEventListeners() {
             if (e.type === 'touchstart') e.preventDefault();
             return;
         }
-        const remShootout = target.closest('.action-remove-shootout-row');
-        if (remShootout) {
-            remShootout.closest('.shootout-item').remove();
-            if (e.type === 'touchstart') e.preventDefault();
-            return;
-        }
         const remAwardRow = target.closest('.action-remove-award-row');
         if (remAwardRow) {
             remAwardRow.parentElement.remove();
@@ -1829,9 +1723,7 @@ function openMatchStudio() {
     document.getElementById('ms-title').disabled = !hasPermission('editMatch');
     
     document.getElementById('goal-events-container-modern').innerHTML = "";
-    document.getElementById('ms-shootout-container').innerHTML = "";
-    const shootoutSection = document.getElementById('ms-shootout-section');
-    if (shootoutSection) shootoutSection.style.display = 'none';
+    
     document.getElementById('ms-awards-container-dynamic').innerHTML = "";
     document.getElementById('ms-ratings-container-dynamic').innerHTML = "";
     
@@ -1971,86 +1863,6 @@ function addGoalRow(initialData = null, isFromBottomSheet = false) {
     updateStudioScore();
 }
 
-function addShootoutRow(initialData = null) {
-    const canEdit = hasPermission('editMatch');
-    const all = [...studioMatch.team_a, ...studioMatch.team_b];
-    const opts = '<option value="">Select Taker</option>' + all.map(pid => `<option value="${pid}">${players.find(p => p && String(p.id) === String(pid))?.name || "Unknown"}</option>`).join('');
-    
-    const div = document.createElement('div');
-    div.className = "event-card-row shootout-item";
-    div.style.marginBottom = "12px";
-    div.style.background = "rgba(255,255,255,0.03)";
-    div.style.padding = "10px";
-    div.style.borderRadius = "12px";
-    div.style.border = "1px solid rgba(255,255,255,0.05)";
-
-    const isMatchScored = initialData?.is_scored ?? true;
-
-    div.innerHTML = `
-        <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
-            <select class="ps-taker" style="width: 100%; padding:10px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: white;" ${!canEdit ? 'disabled' : ''}>
-                ${opts}
-            </select>
-            <div style="display: flex; gap: 8px;">
-                <button class="btn-ps-result ps-btn-goal ${isMatchScored ? 'active' : ''}" data-value="true" style="flex: 1; height: 40px; border-radius: 8px; border: 1px solid rgba(0,255,134,0.2); background: ${isMatchScored ? 'rgba(0,255,134,0.2)' : 'rgba(0,0,0,0.2)'}; color: ${isMatchScored ? '#00ff86' : '#888'}; font-weight: bold; font-size: 0.75rem;">
-                    <i class="fas fa-futbol"></i> GOAL
-                </button>
-                <button class="btn-ps-result ps-btn-miss ${!isMatchScored ? 'active' : ''}" data-value="false" style="flex: 1; height: 40px; border-radius: 8px; border: 1px solid rgba(255,77,77,0.2); background: ${!isMatchScored ? 'rgba(255,77,77,0.2)' : 'rgba(0,0,0,0.2)'}; color: ${!isMatchScored ? '#ff4d4d' : '#888'}; font-weight: bold; font-size: 0.75rem;">
-                    <i class="fas fa-times"></i> MISS
-                </button>
-            </div>
-            <input type="hidden" class="ps-scored-val" value="${isMatchScored}">
-        </div>
-        ${canEdit ? `
-        <button class="goal-delete action-remove-shootout-row" style="background:none; border:none; color:#ff4d4d; cursor:pointer; font-size:1.2rem; align-self: flex-start;">
-            <i class="fas fa-times-circle"></i>
-        </button>
-        ` : ''}
-    `;
-    document.getElementById('ms-shootout-container').appendChild(div);
-    
-    if (initialData?.player_id) {
-        div.querySelector('.ps-taker').value = initialData.player_id;
-    }
-
-    // Add button listeners
-    if (canEdit) {
-        const goalBtn = div.querySelector('.ps-btn-goal');
-        const missBtn = div.querySelector('.ps-btn-miss');
-        const valInput = div.querySelector('.ps-scored-val');
-
-        goalBtn.onclick = () => {
-            valInput.value = "true";
-            goalBtn.classList.add('active');
-            goalBtn.style.background = 'rgba(0,255,134,0.2)';
-            goalBtn.style.color = '#00ff86';
-            missBtn.classList.remove('active');
-            missBtn.style.background = 'rgba(0,0,0,0.2)';
-            missBtn.style.color = '#888';
-            
-            const allRows = document.querySelectorAll('.shootout-item');
-            if (Array.from(allRows).pop() === div) {
-                addShootoutRow();
-            }
-        };
-
-        missBtn.onclick = () => {
-            valInput.value = "false";
-            missBtn.classList.add('active');
-            missBtn.style.background = 'rgba(255,77,77,0.2)';
-            missBtn.style.color = '#ff4d4d';
-            goalBtn.classList.remove('active');
-            goalBtn.style.background = 'rgba(0,0,0,0.2)';
-            goalBtn.style.color = '#888';
-
-            const allRows = document.querySelectorAll('.shootout-item');
-            if (Array.from(allRows).pop() === div) {
-                addShootoutRow();
-            }
-        };
-    }
-}
-
 function addAwardRowInStudio(label = "", playerVal = "") {
     const canManageAwards = hasPermission('manageAwards');
     const container = document.getElementById('ms-awards-container-dynamic');
@@ -2161,16 +1973,6 @@ async function saveMatch() {
             }
         });
 
-        // collect shootout
-        const shootout = [];
-        document.querySelectorAll('.shootout-item').forEach((r, idx) => {
-            const player_id = r.querySelector('.ps-taker').value;
-            const is_scored = r.querySelector('.ps-scored-val').value === "true";
-            if (player_id) {
-                shootout.push({ player_id, is_scored, order_index: idx });
-            }
-        });
-
         // calculate score
         let score_a = 0;
         let score_b = 0;
@@ -2219,7 +2021,6 @@ async function saveMatch() {
             events: events,
             score_a,
             score_b,
-            shootout,
             awards,
             ratings
         };
@@ -2241,14 +2042,12 @@ async function editMatch(matchId) {
     const match = matches.find(m => m && m.id == matchId);
     if (!match) return;
 
-    // Fetch shootout and ratings fresh to ensure we have latest data for editing
-    const [ratingsRes, shootoutRes] = await Promise.all([
-        supabase.from("match_ratings").select("*").eq("match_id", matchId),
-        supabase.from("penalty_shootout").select("*").eq("match_id", matchId).order("order_index", { ascending: true })
+    // Fetch ratings fresh to ensure we have latest data for editing
+    const [ratingsRes] = await Promise.all([
+        supabase.from("match_ratings").select("*").eq("match_id", matchId)
     ]);
     
     match.ratings = ratingsRes.data || [];
-    match.shootout = shootoutRes.data || [];
 
     editingMatchId = matchId;
     studioMatch = { 
@@ -2265,15 +2064,6 @@ async function editMatch(matchId) {
     
     document.getElementById('goal-events-container-modern').innerHTML = "";
     match.events.forEach(ev => addGoalRow(ev));
-
-    document.getElementById('ms-shootout-container').innerHTML = "";
-    const shootoutSection = document.getElementById('ms-shootout-section');
-    if (match.shootout && match.shootout.length > 0) {
-        if (shootoutSection) shootoutSection.style.display = 'block';
-        match.shootout.forEach(ps => addShootoutRow(ps));
-    } else {
-        if (shootoutSection) shootoutSection.style.display = 'none';
-    }
 
     document.getElementById('ms-awards-container-dynamic').innerHTML = "";
     if (match.awards) {
