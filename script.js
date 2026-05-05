@@ -86,6 +86,7 @@ let user = null;
 let studioMatch = { team_a: [], team_b: [], events: [] };
 let currentPhoto = "";
 let editingMatchId = null;
+let currentMatchId = null;
 
 // ===== SUPABASE DATA LOGIC =====
 
@@ -716,7 +717,7 @@ async function renderDashboard() {
     const latest = [...seasonMatches].sort((a, b) => new Date(b.date) - new Date(a.date))[0];
     if(latest) {
         document.getElementById('latest-match-hero').innerHTML = `
-            <div class="match-card action-view-match" style="width:100%" data-id="${latest.id}">
+            <div class="match-card action-view-match" style="width:100%" onclick="openMatchDetails('${latest.id}')">
                 <div class="match-score">${latest.score_a} - ${latest.score_b}</div>
                 <div class="match-meta">${latest.title} • ${latest.date}</div>
             </div>`;
@@ -737,17 +738,17 @@ function renderMatches() {
 
     list.innerHTML = (displayMatches || []).slice().reverse().map(m => `
         <div class="match-card" style="position:relative">
-            <div class="action-view-match" data-id="${m.id}" style="cursor:pointer">
+            <div class="action-view-match" onclick="openMatchDetails('${m.id}')" style="cursor:pointer">
                 <div class="match-score">${m.score_a} - ${m.score_b}</div>
                 <div class="match-meta">${m.title} • ${m.date}</div>
             </div>
             ${hasPermission('editMatch') ? `
             <div style="position:absolute; top:10px; right:10px; display:flex; gap:8px">
                 ${hasPermission('deleteMatch') ? `
-                <button class="action-delete-match" data-id="${m.id}" style="background:none; border:none; color:#ff4d4d; cursor:pointer">
+                <button class="action-delete-match" onclick="deleteMatch('${m.id}')" style="background:none; border:none; color:#ff4d4d; cursor:pointer">
                     <i class="fas fa-trash"></i>
                 </button>` : ''}
-                <button class="action-edit-match" data-id="${m.id}" style="background:none; border:none; color:var(--accent); cursor:pointer">
+                <button class="action-edit-match" onclick="editMatch('${m.id}')" style="background:none; border:none; color:var(--accent); cursor:pointer">
                     <i class="fas fa-edit"></i>
                 </button>
             </div>
@@ -756,19 +757,26 @@ function renderMatches() {
     `).join('');
 }
 
+function openMatchDetails(matchId) {
+    currentMatchId = matchId;
+    loadMatchDetails(matchId);
+}
+
 // --- MODERN MATCH DETAIL VIEW ---
-async function viewMatchDetail(id) {
-    const match = matches.find(x => x && x.id == id);
+async function loadMatchDetails(matchId) {
+    console.log("Using matchId:", matchId);
+    const match = matches.find(x => x && x.id == matchId);
     if (!match) return;
 
     // Fetch ratings and shootout explicitly to ensure data is fresh
     const [ratingsRes, shootoutRes] = await Promise.all([
-        supabase.from("match_ratings").select("*").eq("match_id", id),
-        supabase.from("penalty_shootout").select("*").eq("match_id", id).order("order_index", { ascending: true })
+        supabase.from("match_ratings").select("*").eq("match_id", matchId),
+        supabase.from("penalty_shootout").select("*").eq("match_id", matchId).order("order_index", { ascending: true })
     ]);
     
     const ratings = ratingsRes.data || [];
     const shootoutData = shootoutRes.data || [];
+    console.log("Penalties:", shootoutData);
     
     // Update match object in our local array if needed (optional but good for consistency)
     match.shootout = shootoutData;
@@ -1614,21 +1622,21 @@ function setupEventListeners() {
         
         // Match Details
         const viewMatch = target.closest('.action-view-match');
-        if (viewMatch) {
-            viewMatchDetail(viewMatch.dataset.id);
+        if (viewMatch && !viewMatch.getAttribute('onclick')) {
+            openMatchDetails(viewMatch.dataset.id);
             if (e.type === 'touchstart') e.preventDefault();
             return;
         }
 
         // Match Actions
         const delMatch = target.closest('.action-delete-match');
-        if (delMatch) {
+        if (delMatch && !delMatch.getAttribute('onclick')) {
             deleteMatch(delMatch.dataset.id);
             if (e.type === 'touchstart') e.preventDefault();
             return;
         }
         const editMatchBtn = target.closest('.action-edit-match');
-        if (editMatchBtn) {
+        if (editMatchBtn && !editMatchBtn.getAttribute('onclick')) {
             editMatch(editMatchBtn.dataset.id);
             if (e.type === 'touchstart') e.preventDefault();
             return;
@@ -2229,11 +2237,20 @@ async function saveMatch() {
     }
 }
 
-function editMatch(id) {
-    const match = matches.find(m => m && m.id == id);
+async function editMatch(matchId) {
+    const match = matches.find(m => m && m.id == matchId);
     if (!match) return;
 
-    editingMatchId = id;
+    // Fetch shootout and ratings fresh to ensure we have latest data for editing
+    const [ratingsRes, shootoutRes] = await Promise.all([
+        supabase.from("match_ratings").select("*").eq("match_id", matchId),
+        supabase.from("penalty_shootout").select("*").eq("match_id", matchId).order("order_index", { ascending: true })
+    ]);
+    
+    match.ratings = ratingsRes.data || [];
+    match.shootout = shootoutRes.data || [];
+
+    editingMatchId = matchId;
     studioMatch = { 
         team_a: [...match.team_a], 
         team_b: [...match.team_b], 
@@ -2739,13 +2756,13 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // Delete match function
-async function deleteMatch(id) {
+async function deleteMatch(matchId) {
     if (!hasPermission('deleteMatch')) {
         showAlertModal("Unauthorized: Match Rater, Editor or Admin access required.");
         return;
     }
     openConfirmModal("Delete this match?", async () => {
-        await deleteMatchFromDB(id);
+        await deleteMatchFromDB(matchId);
     }, "delete");
 }
 // ===== EXPORT / IMPORT (SAFE ADDITION) =====
