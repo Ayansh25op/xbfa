@@ -761,13 +761,17 @@ async function viewMatchDetail(id) {
     const match = matches.find(x => x && x.id == id);
     if (!match) return;
 
-    // STEP 2: FETCH RATINGS WITH MATCH
-    const { data: ratings, error } = await supabase
-        .from("match_ratings")
-        .select("*")
-        .eq("match_id", id);
+    // Fetch ratings and shootout explicitly to ensure data is fresh
+    const [ratingsRes, shootoutRes] = await Promise.all([
+        supabase.from("match_ratings").select("*").eq("match_id", id),
+        supabase.from("penalty_shootout").select("*").eq("match_id", id).order("order_index", { ascending: true })
+    ]);
     
-    if (error) console.error("Error fetching match ratings:", error);
+    const ratings = ratingsRes.data || [];
+    const shootoutData = shootoutRes.data || [];
+    
+    // Update match object in our local array if needed (optional but good for consistency)
+    match.shootout = shootoutData;
 
     const getP = (pid) => {
         if (!pid) return "N/A";
@@ -1818,6 +1822,8 @@ function openMatchStudio() {
     
     document.getElementById('goal-events-container-modern').innerHTML = "";
     document.getElementById('ms-shootout-container').innerHTML = "";
+    const shootoutSection = document.getElementById('ms-shootout-section');
+    if (shootoutSection) shootoutSection.style.display = 'none';
     document.getElementById('ms-awards-container-dynamic').innerHTML = "";
     document.getElementById('ms-ratings-container-dynamic').innerHTML = "";
     
@@ -2244,8 +2250,12 @@ function editMatch(id) {
     match.events.forEach(ev => addGoalRow(ev));
 
     document.getElementById('ms-shootout-container').innerHTML = "";
-    if (match.shootout) {
+    const shootoutSection = document.getElementById('ms-shootout-section');
+    if (match.shootout && match.shootout.length > 0) {
+        if (shootoutSection) shootoutSection.style.display = 'block';
         match.shootout.forEach(ps => addShootoutRow(ps));
+    } else {
+        if (shootoutSection) shootoutSection.style.display = 'none';
     }
 
     document.getElementById('ms-awards-container-dynamic').innerHTML = "";
