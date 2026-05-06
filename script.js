@@ -2122,16 +2122,17 @@ async function viewProfile(id) {
         
         <div id="player-export" class="export-card-wrapper">
             <div class="player-view-container">
-                <div class="player-hero-modern">
+                <!-- 1. HEADER SECTION -->
+                <div class="player-hero-modern" style="padding-bottom: 0;">
                     <div class="jersey-number-large">${p.jersey_number || '00'}</div>
                     <img src="${p.photo || 'https://via.placeholder.com/150'}" class="player-photo-modern" alt="${p.name}">
                     <h2 class="player-name-modern">${p.name}</h2>
-                    <div class="player-tag-modern">${p.pos} • ELITE PROFESSIONAL</div>
-                    <div style="width: 40px; height: 3px; background: var(--accent); margin: 15px auto 0 auto; border-radius: 10px; opacity: 0.8;"></div>
+                    <div class="player-tag-modern" style="opacity: 0.6; font-size: 0.75rem;">${p.pos} • ELITE REGIONAL DIVISION</div>
+                    <div class="profile-header-divider"></div>
                 </div>
 
+                <!-- 2. STATS SECTION -->
                 <div class="stats-section-modern">
-                    <div class="section-title-modern">Season Overview</div>
                     <div class="profile-stats-grid">
                         <div class="stat-box-modern">
                             <span class="label">Matches</span>
@@ -2139,7 +2140,7 @@ async function viewProfile(id) {
                         </div>
                         <div class="stat-box-modern highlight-green">
                             <span class="label">Goals</span>
-                            <span class="value">${p.goals || 0}</span>
+                            <span class="value"><i class="fas fa-futbol" style="font-size: 0.8rem; opacity: 0.5;"></i> ${p.goals || 0}</span>
                         </div>
                         <div class="stat-box-modern">
                             <span class="label">Assists</span>
@@ -2147,32 +2148,35 @@ async function viewProfile(id) {
                         </div>
                         <div class="stat-box-modern highlight-gold">
                             <span class="label">Rating</span>
-                            <span class="value"><i class="fas fa-star" style="font-size: 0.8rem; vertical-align: middle;"></i> ${p.avgRating || '0.0'}</span>
+                            <span class="value"><i class="fas fa-star" style="font-size: 0.8rem; margin-right: 2px;"></i> ${p.rating || '0.0'}</span>
                         </div>
                     </div>
                 </div>
 
+                <!-- 3. RECENT MATCHES -->
                 <div class="recent-matches-container">
-                    <div class="section-title-modern">Recent Form</div>
+                    <div class="section-title-modern">Recent Performance</div>
                     <div class="matches-scroll-flex">
                         ${playerMatches.length > 0 ? playerMatches.map(m => {
                             const mRating = getMatchRating(m.id);
-                            const vs = m.team_a?.some(pid => String(pid) === String(id)) ? 'TEAM B' : 'TEAM A';
+                            const isTeamA = m.team_a?.some(pid => String(pid) === String(id));
+                            const opponent = isTeamA ? 'Team B' : 'Team A';
                             return `
                             <div class="form-row">
                                 <div class="match-date">${new Date(m.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
-                                <div class="match-vs">vs ${vs}</div>
+                                <div class="match-vs">vs ${opponent}</div>
                                 <div class="match-rating ${mRating >= 8 ? 'high' : ''}">
-                                    ${mRating || '-.-'}
+                                    ${mRating || '—'}
                                 </div>
                             </div>
                             `;
-                        }).join('') : '<p class="text-dim" style="text-align: center; padding: 20px;">No competitive match history.</p>'}
+                        }).join('') : '<p class="text-dim" style="text-align: center; padding: 20px; font-size: 0.8rem;">No match history found.</p>'}
                     </div>
                 </div>
             </div>
 
-            <div class="export-brand-footer">XBFA • PLAYER DOSSIER • S01</div>
+            <!-- 4. FOOTER -->
+            <div class="export-brand-footer">XBFA • Player Profile • Season 01</div>
         </div>
 
         <div class="mobile-actions" style="background: transparent; border: none; padding: 20px;">
