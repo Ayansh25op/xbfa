@@ -2242,3 +2242,10 @@ input::placeholder { color: rgba(255,255,255,0.3); }
   color: #aaa;
   font-size: 14px;
 }
+
+.export-card {
+  background: #0a0a0a;
+  padding: 20px;
+  border-radius: 20px;
+  width: 350px;
+}
