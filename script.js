@@ -86,7 +86,6 @@ let user = null;
 let studioMatch = { team_a: [], team_b: [], events: [] };
 let currentPhoto = "";
 let editingMatchId = null;
-let currentMatchId = null;
 
 // ===== SUPABASE DATA LOGIC =====
 
@@ -701,7 +700,7 @@ async function renderDashboard() {
     const latest = [...seasonMatches].sort((a, b) => new Date(b.date) - new Date(a.date))[0];
     if(latest) {
         document.getElementById('latest-match-hero').innerHTML = `
-            <div class="match-card action-view-match" style="width:100%" onclick="openMatchDetails('${latest.id}')">
+            <div class="match-card action-view-match" style="width:100%" data-id="${latest.id}">
                 <div class="match-score">${latest.score_a} - ${latest.score_b}</div>
                 <div class="match-meta">${latest.title} • ${latest.date}</div>
             </div>`;
@@ -722,17 +721,17 @@ function renderMatches() {
 
     list.innerHTML = (displayMatches || []).slice().reverse().map(m => `
         <div class="match-card" style="position:relative">
-            <div class="action-view-match" onclick="openMatchDetails('${m.id}')" style="cursor:pointer">
+            <div class="action-view-match" data-id="${m.id}" style="cursor:pointer">
                 <div class="match-score">${m.score_a} - ${m.score_b}</div>
                 <div class="match-meta">${m.title} • ${m.date}</div>
             </div>
             ${hasPermission('editMatch') ? `
             <div style="position:absolute; top:10px; right:10px; display:flex; gap:8px">
                 ${hasPermission('deleteMatch') ? `
-                <button class="action-delete-match" onclick="deleteMatch('${m.id}')" style="background:none; border:none; color:#ff4d4d; cursor:pointer">
+                <button class="action-delete-match" data-id="${m.id}" style="background:none; border:none; color:#ff4d4d; cursor:pointer">
                     <i class="fas fa-trash"></i>
                 </button>` : ''}
-                <button class="action-edit-match" onclick="editMatch('${m.id}')" style="background:none; border:none; color:var(--accent); cursor:pointer">
+                <button class="action-edit-match" data-id="${m.id}" style="background:none; border:none; color:var(--accent); cursor:pointer">
                     <i class="fas fa-edit"></i>
                 </button>
             </div>
@@ -741,23 +740,18 @@ function renderMatches() {
     `).join('');
 }
 
-function openMatchDetails(matchId) {
-    currentMatchId = matchId;
-    loadMatchDetails(matchId);
-}
-
 // --- MODERN MATCH DETAIL VIEW ---
-async function loadMatchDetails(matchId) {
-    console.log("Using matchId:", matchId);
-    const match = matches.find(x => x && x.id == matchId);
+async function viewMatchDetail(id) {
+    const match = matches.find(x => x && x.id == id);
     if (!match) return;
 
-    // Fetch ratings explicitly to ensure data is fresh
-    const [ratingsRes] = await Promise.all([
-        supabase.from("match_ratings").select("*").eq("match_id", matchId)
-    ]);
+    // STEP 2: FETCH RATINGS WITH MATCH
+    const { data: ratings, error } = await supabase
+        .from("match_ratings")
+        .select("*")
+        .eq("match_id", id);
     
-    const ratings = ratingsRes.data || [];
+    if (error) console.error("Error fetching match ratings:", error);
 
     const getP = (pid) => {
         if (!pid) return "N/A";
@@ -802,9 +796,9 @@ async function loadMatchDetails(matchId) {
                 <div class="timeline-container">
                     ${match.events.length > 0 ? match.events.map(ev => {
                         let eventLabel = '<i class="fas fa-futbol"></i>';
-                        if (ev.ownGoal && ev.penalty) eventLabel = '<span class="event-tag og">OG</span> <span class="event-tag pen">PEN</span>';
-                        else if (ev.ownGoal) eventLabel = '<span class="event-tag og">OG</span>';
-                        else if (ev.penalty) eventLabel = '<span class="event-tag pen">PEN</span>';
+                        if (ev.ownGoal && ev.penalty) eventLabel = '<i class="fas fa-futbol"></i> (OG, PEN)';
+                        else if (ev.ownGoal) eventLabel = '<i class="fas fa-futbol"></i> (OG)';
+                        else if (ev.penalty) eventLabel = '<i class="fas fa-futbol"></i> (PEN)';
 
                         return `
                         <div class="timeline-event">
@@ -908,9 +902,9 @@ async function loadMatchDetails(matchId) {
                 <div class="timeline-list">
                     ${match.events.length > 0 ? match.events.map(ev => {
                         let eventLabel = '<i class="fas fa-futbol"></i>';
-                        if (ev.ownGoal && ev.penalty) eventLabel = '<span class="event-tag og">OG</span> <span class="event-tag pen">PEN</span>';
-                        else if (ev.ownGoal) eventLabel = '<span class="event-tag og">OG</span>';
-                        else if (ev.penalty) eventLabel = '<span class="event-tag pen">PEN</span>';
+                        if (ev.ownGoal && ev.penalty) eventLabel = '(OG, PEN)';
+                        else if (ev.ownGoal) eventLabel = '(OG)';
+                        else if (ev.penalty) eventLabel = '(PEN)';
 
                         return `
                         <div class="timeline-event">
@@ -1360,30 +1354,6 @@ async function handleSavePlayer() {
   }
 }
 
-function updateStudioScore() {
-    const rows = document.querySelectorAll('.timeline-item');
-    let score_a = 0;
-    let score_b = 0;
-    rows.forEach(r => {
-        const scorerCell = r.querySelector('.m-scorer');
-        if (!scorerCell) return;
-        const scorer = scorerCell.value;
-        const ownGoal = r.querySelector('.m-owngoal')?.checked;
-        if (scorer) {
-            let team;
-            if (studioMatch.team_a.some(id => String(id) === String(scorer))) {
-                team = 'A';
-            } else if (studioMatch.team_b.some(id => String(id) === String(scorer))) {
-                team = 'B';
-            }
-            if (team === 'A' && !ownGoal) score_a++;
-            if (team === 'B' && ownGoal) score_a++;
-            if (team === 'B' && !ownGoal) score_b++;
-            if (team === 'A' && ownGoal) score_b++;
-        }
-    });
-}
-
 async function init() {
     console.log("Initializing XBFA System...");
     
@@ -1522,21 +1492,21 @@ function setupEventListeners() {
         
         // Match Details
         const viewMatch = target.closest('.action-view-match');
-        if (viewMatch && !viewMatch.getAttribute('onclick')) {
-            openMatchDetails(viewMatch.dataset.id);
+        if (viewMatch) {
+            viewMatchDetail(viewMatch.dataset.id);
             if (e.type === 'touchstart') e.preventDefault();
             return;
         }
 
         // Match Actions
         const delMatch = target.closest('.action-delete-match');
-        if (delMatch && !delMatch.getAttribute('onclick')) {
+        if (delMatch) {
             deleteMatch(delMatch.dataset.id);
             if (e.type === 'touchstart') e.preventDefault();
             return;
         }
         const editMatchBtn = target.closest('.action-edit-match');
-        if (editMatchBtn && !editMatchBtn.getAttribute('onclick')) {
+        if (editMatchBtn) {
             editMatch(editMatchBtn.dataset.id);
             if (e.type === 'touchstart') e.preventDefault();
             return;
@@ -1723,7 +1693,6 @@ function openMatchStudio() {
     document.getElementById('ms-title').disabled = !hasPermission('editMatch');
     
     document.getElementById('goal-events-container-modern').innerHTML = "";
-    
     document.getElementById('ms-awards-container-dynamic').innerHTML = "";
     document.getElementById('ms-ratings-container-dynamic').innerHTML = "";
     
@@ -1833,14 +1802,14 @@ function addGoalRow(initialData = null, isFromBottomSheet = false) {
             <div class="toggle-label-pill">
                 <span class="toggle-text">OG</span>
                 <label class="modern-toggle og-style">
-                    <input type="checkbox" class="m-owngoal" ${initialData?.ownGoal ? 'checked' : ''} ${!canEdit ? 'disabled' : ''}>
+                    <input type="checkbox" class="m-owngoal" ${initialData?.ownGoal ? 'checked' : ''} ${!canEdit ? 'checked' : ''} ${!canEdit ? 'disabled' : ''}>
                     <span class="toggle-slider"></span>
                 </label>
             </div>
             <div class="toggle-label-pill">
                 <span class="toggle-text">PEN</span>
                 <label class="modern-toggle pen-style">
-                    <input type="checkbox" class="m-penalty" ${initialData?.penalty ? 'checked' : ''} ${!canEdit ? 'disabled' : ''}>
+                    <input type="checkbox" class="m-penalty" ${initialData?.penalty ? 'checked' : ''} ${!canEdit ? 'checked' : ''} ${!canEdit ? 'disabled' : ''}>
                     <span class="toggle-slider"></span>
                 </label>
             </div>
@@ -1853,14 +1822,9 @@ function addGoalRow(initialData = null, isFromBottomSheet = false) {
     `;
     document.getElementById('goal-events-container-modern').appendChild(div);
     
-    div.querySelector('.m-min').addEventListener('input', updateStudioScore);
-    div.querySelector('.m-scorer').addEventListener('change', updateStudioScore);
-    div.querySelector('.m-owngoal')?.addEventListener('change', updateStudioScore);
-    
     if (initialData?.scorer) {
         div.querySelector('.m-scorer').value = initialData.scorer;
     }
-    updateStudioScore();
 }
 
 function addAwardRowInStudio(label = "", playerVal = "") {
@@ -2038,18 +2002,11 @@ async function saveMatch() {
     }
 }
 
-async function editMatch(matchId) {
-    const match = matches.find(m => m && m.id == matchId);
+function editMatch(id) {
+    const match = matches.find(m => m && m.id == id);
     if (!match) return;
 
-    // Fetch ratings fresh to ensure we have latest data for editing
-    const [ratingsRes] = await Promise.all([
-        supabase.from("match_ratings").select("*").eq("match_id", matchId)
-    ]);
-    
-    match.ratings = ratingsRes.data || [];
-
-    editingMatchId = matchId;
+    editingMatchId = id;
     studioMatch = { 
         team_a: [...match.team_a], 
         team_b: [...match.team_b], 
@@ -2546,13 +2503,13 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // Delete match function
-async function deleteMatch(matchId) {
+async function deleteMatch(id) {
     if (!hasPermission('deleteMatch')) {
         showAlertModal("Unauthorized: Match Rater, Editor or Admin access required.");
         return;
     }
     openConfirmModal("Delete this match?", async () => {
-        await deleteMatchFromDB(matchId);
+        await deleteMatchFromDB(id);
     }, "delete");
 }
 // ===== EXPORT / IMPORT (SAFE ADDITION) =====
