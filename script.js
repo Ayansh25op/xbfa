@@ -11,6 +11,8 @@ let currentManagingSeasonId = null;
 let allSystemUsers = [];
 let players = [];
 let matches = [];
+let currentViewingMatch = null;
+let currentViewingPlayer = null;
 
 const ROLE_PERMISSIONS = {
     admin: { all: true, adminOnly: true },
@@ -745,6 +747,7 @@ function renderMatches() {
 async function viewMatchDetail(id) {
     const match = matches.find(x => x && x.id == id);
     if (!match) return;
+    currentViewingMatch = match;
 
     // STEP 2: FETCH RATINGS WITH MATCH
     const { data: ratings, error } = await supabase
@@ -777,7 +780,7 @@ async function viewMatchDetail(id) {
 
         html = `
             <span class="close-btn" id="closeMatchDetailBtn" onclick="toggleModal('match-detail-modal', false)">&times;</span>
-            <div id="match-export" style="background: #000; padding: 10px; border-radius: 12px;">
+            <div class="export-card-wrapper" id="match-export">
                 <div class="match-detail-hero">
                     <div class="text-dim" style="font-size: 0.8rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px;">${match.title} • ${match.date}</div>
                     <div class="match-detail-score">
@@ -849,6 +852,8 @@ async function viewMatchDetail(id) {
                         </div>
                     </div>
                 </div>
+
+                <div class="export-brand-footer">Xbox Football Assoc. • Season 01</div>
             </div>
             <button class="btn-neon w-100" id="exportMatchBtn" style="margin-top: 15px;"><i class="fas fa-file-image"></i> Export as Image</button>
         `;
@@ -871,7 +876,7 @@ async function viewMatchDetail(id) {
         html = `
             <span class="close-btn" id="closeMatchDetailBtn" onclick="toggleModal('match-detail-modal', false)">&times;</span>
             
-            <div id="match-export" style="background: #000; padding: 30px; border-radius: 15px;">
+            <div class="export-card-wrapper" id="match-export" style="background: #000; padding: 24px; border-radius: 32px;">
                 <div class="match-header-modern">
                     <div class="match-meta">${match.title} • ${match.date}</div>
                     <div class="score-display">
@@ -941,6 +946,8 @@ async function viewMatchDetail(id) {
                         <span class="award-winner">${getP(match.awards?.gk)}</span>
                     </div>
                 </div>
+
+                <div class="export-brand-footer">Xbox Football Assoc. • Season 01</div>
             </div>
             <button class="btn-neon w-100" id="exportMatchBtn" style="margin-top: 20px;"><i class="fas fa-file-image"></i> Export as Image</button>
         `;
@@ -2059,6 +2066,7 @@ function editMatch(id) {
 async function viewProfile(id) {
     const p = players.find(x => x && String(x.id) === String(id));
     if (!p) return;
+    currentViewingPlayer = p;
 
     // Fetch latest rating
     const { data: latestRatingData } = await supabase
@@ -2112,71 +2120,59 @@ async function viewProfile(id) {
             <i class="fas fa-times"></i>
         </div>
         
-        <div id="player-export" class="player-view-container">
-            <div class="player-hero-modern">
-                <div class="jersey-number-large">${p.jersey_number || '00'}</div>
-                <img src="${p.photo || 'https://via.placeholder.com/150'}" class="player-photo-modern" alt="${p.name}">
-                <h2 class="player-name-modern">${p.name}</h2>
-                <div class="player-tag-modern">${p.pos} • ELITE PRO</div>
-            </div>
-
-            <div class="main-rating-card">
-                <div class="rating-big">
-                    <span class="label">Overall</span>
-                    <span class="value">${p.rating}</span>
+        <div id="player-export" class="export-card-wrapper">
+            <div class="player-view-container">
+                <div class="player-hero-modern">
+                    <div class="jersey-number-large">${p.jersey_number || '00'}</div>
+                    <img src="${p.photo || 'https://via.placeholder.com/150'}" class="player-photo-modern" alt="${p.name}">
+                    <h2 class="player-name-modern">${p.name}</h2>
+                    <div class="player-tag-modern">${p.pos} • ELITE PROFESSIONAL</div>
+                    <div style="width: 40px; height: 3px; background: var(--accent); margin: 15px auto 0 auto; border-radius: 10px; opacity: 0.8;"></div>
                 </div>
-                <div class="main-card-divider"></div>
-                <div class="pos-team-info">
-                    <span class="pos">${p.pos}</span>
-                    <span class="team">Xbox Football Assoc.</span>
-                </div>
-            </div>
 
-            <div class="stats-section-modern">
-                <div class="section-title-modern">Season Overview</div>
-                <div class="stats-list-modern">
-                    <div class="stat-row-modern">
-                        <span class="label">Matches Played</span>
-                        <span class="value">${p.matches || 0}</span>
-                    </div>
-                    <div class="stat-row-modern">
-                        <span class="label">Goals Scored</span>
-                        <span class="value"><i class="fas fa-futbol" style="color: var(--accent); font-size: 0.9rem;"></i> ${p.goals || 0}</span>
-                    </div>
-                    <div class="stat-row-modern">
-                        <span class="label">Total Assists</span>
-                        <span class="value">0</span>
-                    </div>
-                    <div class="stat-row-modern">
-                        <span class="label">Average Rating</span>
-                        <span class="value" style="color: gold;">⭐ ${p.avgRating || '0.0'}</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="recent-matches-container">
-                <div class="section-title-modern">Recent Form</div>
-                <div class="matches-scroll-flex">
-                    ${playerMatches.length > 0 ? playerMatches.map(m => {
-                        const mRating = getMatchRating(m.id);
-                        return `
-                        <div class="recent-match-card-modern">
-                            <div class="match-info-mini">
-                                <div class="title">${m.title}</div>
-                                <div class="date">${new Date(m.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
-                            </div>
-                            <div class="match-rating-badge ${mRating >= 8 ? 'gold' : ''}">
-                                ${mRating || '-.-'}
-                            </div>
+                <div class="stats-section-modern">
+                    <div class="section-title-modern">Season Overview</div>
+                    <div class="profile-stats-grid">
+                        <div class="stat-box-modern">
+                            <span class="label">Matches</span>
+                            <span class="value">${p.matches || 0}</span>
                         </div>
-                        `;
-                    }).join('') : '<p class="text-dim" style="text-align: center; padding: 20px;">No matches found this season.</p>'}
+                        <div class="stat-box-modern highlight-green">
+                            <span class="label">Goals</span>
+                            <span class="value">${p.goals || 0}</span>
+                        </div>
+                        <div class="stat-box-modern">
+                            <span class="label">Assists</span>
+                            <span class="value">0</span>
+                        </div>
+                        <div class="stat-box-modern highlight-gold">
+                            <span class="label">Rating</span>
+                            <span class="value"><i class="fas fa-star" style="font-size: 0.8rem; vertical-align: middle;"></i> ${p.avgRating || '0.0'}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="recent-matches-container">
+                    <div class="section-title-modern">Recent Form</div>
+                    <div class="matches-scroll-flex">
+                        ${playerMatches.length > 0 ? playerMatches.map(m => {
+                            const mRating = getMatchRating(m.id);
+                            const vs = m.team_a?.some(pid => String(pid) === String(id)) ? 'TEAM B' : 'TEAM A';
+                            return `
+                            <div class="form-row">
+                                <div class="match-date">${new Date(m.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+                                <div class="match-vs">vs ${vs}</div>
+                                <div class="match-rating ${mRating >= 8 ? 'high' : ''}">
+                                    ${mRating || '-.-'}
+                                </div>
+                            </div>
+                            `;
+                        }).join('') : '<p class="text-dim" style="text-align: center; padding: 20px;">No competitive match history.</p>'}
+                    </div>
                 </div>
             </div>
-            
-            <div style="padding: 0 20px 20px 20px; opacity: 0.3; text-align: center; font-size: 0.7rem; letter-spacing: 2px;">
-                XBFA PLAYER PROFILE • SEASON 01
-            </div>
+
+            <div class="export-brand-footer">XBFA • PLAYER DOSSIER • S01</div>
         </div>
 
         <div class="mobile-actions" style="background: transparent; border: none; padding: 20px;">
@@ -2993,7 +2989,7 @@ function openRatingPickerBottomSheet(pid, pName, currentVal) {
 // --- EXPORT AS IMAGE ---
 async function exportMatch() {
     const element = document.getElementById("match-export");
-    if (!element) return;
+    if (!element || !currentViewingMatch) return;
 
     // Show loading state or disable button
     const btn = document.getElementById('exportMatchBtn');
@@ -3011,23 +3007,21 @@ async function exportMatch() {
 
         const dataUrl = canvas.toDataURL("image/png");
 
-        if (navigator.share) {
-            const blob = await (await fetch(dataUrl)).blob();
-            const file = new File([blob], "match.png", { type: "image/png" });
-
-            try {
-                await navigator.share({
-                    files: [file],
-                    title: "Match Result",
-                    text: "Check out this match result from XBFA!"
-                });
-            } catch (shareErr) {
-                console.log("Share failed or cancelled, falling back to download", shareErr);
-                downloadImage(dataUrl, "match.png");
-            }
-        } else {
-            downloadImage(dataUrl, "match.png");
+        // Format filename: {match_title}_{match_date}_XBFA.png
+        const title = (currentViewingMatch.title || "Match").replace(/[^a-zA-Z0-9\s]/g, '').trim().replace(/\s+/g, '_');
+        
+        let dateStr = currentViewingMatch.date || ""; 
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime())) {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            dateStr = `${year}-${month}-${day}`;
         }
+        
+        const filename = `${title}_${dateStr}_XBFA.png`;
+        downloadImage(dataUrl, filename);
+        
     } catch (err) {
         console.error("Export Error:", err);
         showAlertModal("Failed to export image: " + err.message);
@@ -3039,7 +3033,7 @@ async function exportMatch() {
 
 async function exportPlayer() {
     const element = document.getElementById("player-export");
-    if (!element) return;
+    if (!element || !currentViewingPlayer) return;
 
     // Show loading state or disable button
     const btn = document.getElementById('exportPlayerBtn');
@@ -3057,23 +3051,12 @@ async function exportPlayer() {
 
         const dataUrl = canvas.toDataURL("image/png");
 
-        if (navigator.share) {
-            const blob = await (await fetch(dataUrl)).blob();
-            const file = new File([blob], "player_profile.png", { type: "image/png" });
-
-            try {
-                await navigator.share({
-                    files: [file],
-                    title: "Player Profile",
-                    text: "Check out this player profile from XBFA!"
-                });
-            } catch (shareErr) {
-                console.log("Share failed or cancelled, falling back to download", shareErr);
-                downloadImage(dataUrl, "player_profile.png");
-            }
-        } else {
-            downloadImage(dataUrl, "player_profile.png");
-        }
+        // Format filename: {player_name}_Profile_XBFA.png
+        const name = (currentViewingPlayer.name || "Player").replace(/[^a-zA-Z0-9\s]/g, '').trim().replace(/\s+/g, '_');
+        const filename = `${name}_Profile_XBFA.png`;
+        
+        downloadImage(dataUrl, filename);
+        
     } catch (err) {
         console.error("Export Error:", err);
         showAlertModal("Failed to export image: " + err.message);
