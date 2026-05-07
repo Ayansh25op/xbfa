@@ -855,7 +855,8 @@ async function viewMatchDetail(id) {
             <div class="export-brand-footer">Xbox Football Assoc. • Season 01</div>
         </div>
 
-        <div class="mobile-actions" style="background: transparent; border: none; padding: 20px;">
+        <div style="height: 100px;"></div>
+        <div class="modal-footer-fixed">
             <button class="btn-neon w-100" id="exportMatchBtn"><i class="fas fa-file-image"></i> Export Match Card</button>
         </div>
     `;
@@ -2090,8 +2091,9 @@ async function viewProfile(id) {
             <div class="export-brand-footer">XBFA • Player Profile • Season 01</div>
         </div>
 
-        <div class="mobile-actions" style="background: transparent; border: none; padding: 20px;">
-            <button class="btn-neon w-100" id="exportPlayerBtn" style="box-shadow: 0 10px 30px rgba(0, 255, 156, 0.4);">
+        <div style="height: 100px;"></div>
+        <div class="modal-footer-fixed">
+            <button class="btn-neon w-100" id="exportPlayerBtn">
                 <i class="fas fa-share-alt"></i> Export as Profile Card
             </button>
         </div>
