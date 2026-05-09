@@ -774,11 +774,12 @@ async function viewMatchDetail(id) {
     `).join('');
 
     const html = `
+        <div class="close-floating" id="closeMatchDetailBtn" onclick="toggleModal('match-detail-modal', false)">
+            <i class="fas fa-times"></i>
+        </div>
+
         <div class="export-card-wrapper" id="match-export">
             <div class="match-detail-hero">
-                <div class="close-floating" id="closeMatchDetailBtn" onclick="toggleModal('match-detail-modal', false)">
-                    <i class="fas fa-times"></i>
-                </div>
                 <div class="text-dim" style="font-size: 0.7rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1.5px;">${match.title} • ${match.date}</div>
                 <div class="match-detail-score">
                     <div style="color:var(--team-a)">
@@ -1115,13 +1116,13 @@ function toggleModal(id, show) {
     const el = document.getElementById(id);
     if(show) {
         el.classList.add('show-flex');
-        document.body.classList.add('modal-open');
+        document.body.style.overflow = 'hidden';
     } else {
         el.classList.remove('show-flex');
         // Check if other modals are still open before restoring scroll
         const openModals = document.querySelectorAll('.modal.show-flex');
         if (openModals.length === 0) {
-            document.body.classList.remove('modal-open');
+            document.body.style.overflow = 'auto';
         }
     }
 }
@@ -2027,13 +2028,14 @@ async function viewProfile(id) {
 
     // Use common structure for both mobile/desktop for export consistency
     const html = `
+        <div class="close-floating" id="closePlayerViewBtn" onclick="toggleModal('player-modal', false)">
+            <i class="fas fa-times"></i>
+        </div>
+        
         <div id="player-export" class="export-card-wrapper">
             <div class="player-view-container">
                 <!-- 1. HEADER SECTION -->
                 <div class="player-hero-modern" style="padding-bottom: 0;">
-                    <div class="close-floating" id="closePlayerViewBtn" onclick="toggleModal('player-modal', false)">
-                        <i class="fas fa-times"></i>
-                    </div>
                     <div class="jersey-number-large">${p.jersey_number || '00'}</div>
                     <img src="${p.photo || 'https://via.placeholder.com/150'}" class="player-photo-modern" alt="${p.name}">
                     <h2 class="player-name-modern">${p.name}</h2>
@@ -2788,10 +2790,10 @@ function toggleBottomSheet(show, content = "") {
     if (show) {
         body.innerHTML = content;
         bs.classList.add('show');
-        document.body.classList.add('modal-open');
+        document.body.style.overflow = 'hidden';
     } else {
         bs.classList.remove('show');
-        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
     }
 }
 
